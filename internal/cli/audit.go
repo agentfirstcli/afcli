@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/agentfirstcli/afcli/internal/audit"
 	"github.com/agentfirstcli/afcli/internal/exit"
 	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
@@ -68,6 +69,8 @@ var auditCmd = &cobra.Command{
 		if opts.Deterministic {
 			r.StartedAt = ""
 		}
+
+		audit.DefaultEngine().Run(ctx, resolved, r)
 
 		if debugSleep > 0 {
 			select {
