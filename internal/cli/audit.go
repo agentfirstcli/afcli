@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/agentfirstcli/afcli/internal/audit"
+	"github.com/agentfirstcli/afcli/internal/descriptor"
 	"github.com/agentfirstcli/afcli/internal/exit"
 	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
@@ -24,6 +25,13 @@ const AfcliVersion = "0.0.0-dev"
 // test can SIGINT a running invocation. Hidden — not part of the public
 // CLI surface. Real audit work in later slices replaces this stub.
 var debugSleep time.Duration
+
+// descriptorPath is the value of --descriptor on auditCmd. Empty means
+// "no descriptor" — Engine.Run gets nil and runs every principle at its
+// declared severity. Populated, the file is loaded and validated before
+// any probe runs; parse failures short-circuit to a DESCRIPTOR_INVALID /
+// DESCRIPTOR_NOT_FOUND envelope without contaminating findings.
+var descriptorPath string
 
 // errInterrupted is returned by audit's RunE after it has already written
 // a partial report to stdout in response to SIGINT/SIGTERM. Execute()
@@ -52,6 +60,15 @@ var auditCmd = &cobra.Command{
 			return classifyResolveError(target, err)
 		}
 
+		var d *descriptor.Descriptor
+		if descriptorPath != "" {
+			var dErr error
+			d, dErr = descriptor.Load(descriptorPath)
+			if dErr != nil {
+				return classifyDescriptorError(descriptorPath, dErr)
+			}
+		}
+
 		ctx, cleanup := InstallSignalHandler(cmd.Context())
 		defer cleanup()
 
@@ -70,7 +87,7 @@ var auditCmd = &cobra.Command{
 			r.StartedAt = ""
 		}
 
-		audit.DefaultEngine().Run(ctx, resolved, r, nil)
+		audit.DefaultEngine().Run(ctx, resolved, r, d)
 
 		if debugSleep > 0 {
 			select {
@@ -95,6 +112,7 @@ var auditCmd = &cobra.Command{
 func init() {
 	auditCmd.Flags().DurationVar(&debugSleep, "debug-sleep", 0, "internal: sleep N before finalizing the audit (used by signal tests)")
 	_ = auditCmd.Flags().MarkHidden("debug-sleep")
+	auditCmd.Flags().StringVar(&descriptorPath, "descriptor", "", "path to afcli.yaml descriptor (skip/relax + S05 probe authorization)")
 }
 
 // markUnfinishedAsSkipped flips any non-terminal Finding to Status=skip

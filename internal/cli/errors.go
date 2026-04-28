@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
+	"github.com/agentfirstcli/afcli/internal/descriptor"
+	"github.com/agentfirstcli/afcli/internal/exit"
 	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
 )
@@ -70,6 +73,60 @@ func renderEnvelope(w io.Writer, env *report.ErrorEnvelope, target string, opts 
 		Error:           env,
 	}
 	return renderReport(w, r, opts, format)
+}
+
+// classifyDescriptorError converts a descriptor.Load failure into an
+// *auditError carrying the documented DESCRIPTOR_INVALID /
+// DESCRIPTOR_NOT_FOUND envelope. The path is always echoed in
+// details.path so an agent can see which file failed without parsing
+// the message string. If err does not unwrap to *descriptor.Error, we
+// still emit a generic DESCRIPTOR_INVALID envelope so the wire contract
+// is preserved.
+func classifyDescriptorError(path string, err error) *auditError {
+	var dErr *descriptor.Error
+	if errors.As(err, &dErr) {
+		hint := dErr.Hint
+		code := dErr.Code
+		if code != report.CodeDescriptorNotFound && code != report.CodeDescriptorInvalid {
+			code = report.CodeDescriptorInvalid
+		}
+		if hint == "" {
+			if code == report.CodeDescriptorNotFound {
+				hint = "check the path and that the file exists"
+			} else {
+				hint = "see https://agentfirstcli.com/descriptor for the descriptor schema"
+			}
+		}
+		return newAuditError(
+			code,
+			dErr.Message,
+			hint,
+			path,
+			mergeDescriptorDetails(path, dErr.Details),
+			exit.CouldNotAudit,
+		)
+	}
+	return newAuditError(
+		report.CodeDescriptorInvalid,
+		fmt.Sprintf("descriptor could not be loaded: %v", err),
+		"see https://agentfirstcli.com/descriptor for the descriptor schema",
+		path,
+		map[string]any{"path": path},
+		exit.CouldNotAudit,
+	)
+}
+
+// mergeDescriptorDetails returns a fresh map seeded with path then
+// overlaid with the descriptor.Error's Details so callers see the
+// localizing fields (line, key, value, expected, got, allowed) when the
+// parser populated them. The descriptor's own "path" wins over the
+// CLI-supplied one only if it differs, preserving what the parser saw.
+func mergeDescriptorDetails(path string, details map[string]any) map[string]any {
+	out := map[string]any{"path": path}
+	for k, v := range details {
+		out[k] = v
+	}
+	return out
 }
 
 // usageEnvelope converts a Cobra parse-time error (unknown flag, missing
