@@ -45,8 +45,43 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
-# S03 (Docker Hub image) adds the dockers block.
-# S04 flips release.disable=false and adds the tag-triggered workflow.
+# S03: Docker Hub multi-arch image. Per-arch builds tag
+# `agentfirstcli/afcli:{{ .Version }}-<arch>` off distroless static. Manifest
+# list assembly is push-only (added in T02) so snapshot does not produce one.
+# Publishers (release/brew/docker) stay disabled until S04 flips
+# release.disable=false alongside the tag-triggered workflow.
+dockers:
+  - id: afcli-amd64
+    ids:
+      - afcli
+    goos: linux
+    goarch: amd64
+    use: buildx
+    dockerfile: Dockerfile
+    image_templates:
+      - "agentfirstcli/afcli:{{ .Version }}-amd64"
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.source=https://github.com/agentfirstcli/afcli"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+  - id: afcli-arm64
+    ids:
+      - afcli
+    goos: linux
+    goarch: arm64
+    use: buildx
+    dockerfile: Dockerfile
+    image_templates:
+      - "agentfirstcli/afcli:{{ .Version }}-arm64"
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.source=https://github.com/agentfirstcli/afcli"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+
 release:
   disable: true
 
