@@ -39,10 +39,17 @@ type Engine struct {
 }
 
 // DefaultEngine returns an Engine wired with the S03 check registry.
-// T02 populates Registry with the five real checks (P6/P7/P14/P15/P16).
+// The five real S03 checks (P6/P7/P14/P15/P16) are registered; the other
+// 11 principles fall through to stubCheck via Engine.Run.
 func DefaultEngine() *Engine {
 	return &Engine{
-		Registry:     map[string]Check{},
+		Registry: map[string]Check{
+			"P6":  checkP6,
+			"P7":  checkP7,
+			"P14": checkP14,
+			"P15": checkP15,
+			"P16": checkP16,
+		},
 		ProbeTimeout: defaultProbeTimeout,
 		Probe:        runProbe,
 	}
