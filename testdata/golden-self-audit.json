@@ -1,0 +1,185 @@
+{
+  "manifest_version": "0.0.1",
+  "afcli_version": "0.0.0-dev",
+  "target": "./afcli",
+  "started_at": "",
+  "duration_ms": 0,
+  "findings": [
+    {
+      "principle_id": "P1",
+      "title": "Structured Output",
+      "category": "Output",
+      "status": "review",
+      "kind": "automated",
+      "severity": "medium",
+      "evidence": "--help advertises no structured output format (json/ndjson/yaml/csv)",
+      "recommendation": "add --output json (or --json) so callers can parse output mechanically",
+      "hint": "https://agentfirstcli.github.io/principles/structured-output/"
+    },
+    {
+      "principle_id": "P10",
+      "title": "Faithful Dry Run",
+      "category": "Behavior",
+      "status": "review",
+      "kind": "automated",
+      "severity": "medium",
+      "evidence": "--help advertises no dry-run / simulate / check affordance",
+      "recommendation": "add --dry-run that performs all checks and exits without side effects",
+      "hint": "https://agentfirstcli.github.io/principles/faithful-dry-run/"
+    },
+    {
+      "principle_id": "P11",
+      "title": "Graceful Cancellation",
+      "category": "Behavior",
+      "status": "review",
+      "kind": "requires-review",
+      "severity": "medium",
+      "evidence": "behavioral SIGINT analysis requires sending signals mid-run — out of scope for v1",
+      "recommendation": "document signal handling in --help and ensure SIGINT triggers a clean partial-result emission, not a hard abort",
+      "hint": "https://agentfirstcli.github.io/principles/graceful-cancellation/"
+    },
+    {
+      "principle_id": "P12",
+      "title": "Stable Schema",
+      "category": "Contracts \u0026 Stability",
+      "status": "review",
+      "kind": "requires-review",
+      "severity": "medium",
+      "evidence": "schema stability is a meta-property over time — single-audit detection not possible",
+      "recommendation": "version your output schema, document additions in changelog, and never silently change a field's type or semantics",
+      "hint": "https://agentfirstcli.github.io/principles/stable-schema/"
+    },
+    {
+      "principle_id": "P13",
+      "title": "Stable Flags",
+      "category": "Contracts \u0026 Stability",
+      "status": "review",
+      "kind": "automated",
+      "severity": "medium",
+      "evidence": "--help advertises no --version flag",
+      "recommendation": "add --version output so callers can pin to known flag surfaces and detect drift",
+      "hint": "https://agentfirstcli.github.io/principles/stable-flags/"
+    },
+    {
+      "principle_id": "P14",
+      "title": "Capability Negotiation",
+      "category": "Contracts \u0026 Stability",
+      "status": "pass",
+      "kind": "automated",
+      "severity": "medium",
+      "evidence": "--help-schema",
+      "recommendation": "keep advertising version/capability negotiation in --help",
+      "hint": "https://agentfirstcli.github.io/principles/capability-negotiation/"
+    },
+    {
+      "principle_id": "P15",
+      "title": "Machine-Readable Help",
+      "category": "Discoverability",
+      "status": "pass",
+      "kind": "automated",
+      "severity": "high",
+      "evidence": "--help-schema",
+      "recommendation": "keep advertising machine-readable help in --help",
+      "hint": "https://agentfirstcli.github.io/principles/machine-readable-help/"
+    },
+    {
+      "principle_id": "P16",
+      "title": "Signal Danger",
+      "category": "Safety",
+      "status": "review",
+      "kind": "automated",
+      "severity": "high",
+      "evidence": "no danger or confirmation-bypass keywords found in --help",
+      "recommendation": "document destructive operations and confirmation-bypass flags in --help",
+      "hint": "https://agentfirstcli.github.io/principles/signal-danger/"
+    },
+    {
+      "principle_id": "P2",
+      "title": "Token Efficiency",
+      "category": "Output",
+      "status": "review",
+      "kind": "requires-review",
+      "severity": "medium",
+      "evidence": "automated token-efficiency analysis is out of scope for v1 — manual review against the principle's manifest entry required",
+      "recommendation": "audit --help and command output for verbosity, banners, and decoration; trim to signal-only by default",
+      "hint": "https://agentfirstcli.github.io/principles/token-efficiency/"
+    },
+    {
+      "principle_id": "P3",
+      "title": "Deterministic Ordering",
+      "category": "Output",
+      "status": "review",
+      "kind": "requires-review",
+      "severity": "medium",
+      "evidence": "deterministic-ordering analysis requires multiple invocations of the same command — out of scope for v1",
+      "recommendation": "document output ordering guarantees in --help and run multiple invocations to compare",
+      "hint": "https://agentfirstcli.github.io/principles/deterministic-ordering/"
+    },
+    {
+      "principle_id": "P4",
+      "title": "Structured Progress",
+      "category": "Output",
+      "status": "review",
+      "kind": "automated",
+      "severity": "medium",
+      "evidence": "--help shows no progress or silence affordances",
+      "recommendation": "expose --progress / --quiet so agents can choose between event streams and silence",
+      "hint": "https://agentfirstcli.github.io/principles/structured-progress/"
+    },
+    {
+      "principle_id": "P5",
+      "title": "Partial Failure Output",
+      "category": "Output",
+      "status": "review",
+      "kind": "requires-review",
+      "severity": "medium",
+      "evidence": "partial-failure semantics require fixture-driven probing not in scope for v1",
+      "recommendation": "document partial-failure behavior and ensure successful items are reported even when the run fails overall",
+      "hint": "https://agentfirstcli.github.io/principles/partial-failure/"
+    },
+    {
+      "principle_id": "P6",
+      "title": "Semantic Exit Codes",
+      "category": "Errors \u0026 Exit",
+      "status": "review",
+      "kind": "automated",
+      "severity": "high",
+      "evidence": "--help does not document exit-code semantics",
+      "recommendation": "document exit codes in --help under an EXIT STATUS section",
+      "hint": "https://agentfirstcli.github.io/principles/semantic-exit-codes/"
+    },
+    {
+      "principle_id": "P7",
+      "title": "Parseable Errors",
+      "category": "Errors \u0026 Exit",
+      "status": "review",
+      "kind": "automated",
+      "severity": "high",
+      "evidence": "exit=2; stderr[0]={",
+      "recommendation": "prefix unknown-flag errors with the binary name or a recognizable label",
+      "hint": "https://agentfirstcli.github.io/principles/parseable-errors/"
+    },
+    {
+      "principle_id": "P8",
+      "title": "Non-Interactive Default",
+      "category": "Behavior",
+      "status": "review",
+      "kind": "requires-review",
+      "severity": "medium",
+      "evidence": "non-interactive-default detection requires a \u003c/dev/null stdin probe — out of scope for v1",
+      "recommendation": "ensure the CLI never prompts when stdin is not a TTY; document this behavior in --help",
+      "hint": "https://agentfirstcli.github.io/principles/non-interactive-default/"
+    },
+    {
+      "principle_id": "P9",
+      "title": "Idempotent Operations",
+      "category": "Behavior",
+      "status": "review",
+      "kind": "requires-review",
+      "severity": "medium",
+      "evidence": "idempotency requires a descriptor-declared idempotent command and repeated invocation analysis — out of scope for v1",
+      "recommendation": "declare idempotent commands in afcli.yaml under commands.safe[] and verify repeated invocations converge",
+      "hint": "https://agentfirstcli.github.io/principles/idempotent-operations/"
+    }
+  ]
+}
