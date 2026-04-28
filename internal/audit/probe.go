@@ -71,6 +71,15 @@ func runProbe(ctx context.Context, target string, args []string, timeout time.Du
 		"LANG=C",
 		"GIT_PAGER=cat",
 	}
+	// ARGV_RECORD_FILE is a test-only affordance: when set, the
+	// argv-recorder fixture writes every invocation's argv to this path.
+	// Inheriting it (and only it) lets S05 integration tests prove
+	// commands.destructive[] is never invoked without polluting the
+	// otherwise-minimal probe env in production runs (where the var is
+	// unset).
+	if v := os.Getenv("ARGV_RECORD_FILE"); v != "" {
+		env = append(env, "ARGV_RECORD_FILE="+v)
+	}
 	if len(extraEnv) > 0 {
 		keys := make([]string, 0, len(extraEnv))
 		for k := range extraEnv {

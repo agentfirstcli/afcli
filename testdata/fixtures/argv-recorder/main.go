@@ -15,6 +15,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func main() {
@@ -35,7 +36,14 @@ func main() {
 		fmt.Fprint(os.Stderr, "argv-recorder: unknown option: --afcli-bogus-flag\n")
 		os.Exit(1)
 	case "--hang":
-		select {}
+		// Block until killed (probe timeout / parent cancellation).
+		// `select {}` would trigger Go's all-goroutines-asleep deadlock
+		// detector and abort with exit 2 in <1ms — too short for the
+		// per-probe timeout to fire. Sleeping in a loop keeps the timer
+		// goroutine alive so the runtime considers main() "busy".
+		for {
+			time.Sleep(time.Hour)
+		}
 	default:
 		os.Exit(0)
 	}

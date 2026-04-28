@@ -1,0 +1,8 @@
+format_version: "1"
+commands:
+  safe:
+    - "--version"
+  destructive:
+    - "--burn-the-disk"
+env:
+  AFCLI_TEST_PROBE: "1"
