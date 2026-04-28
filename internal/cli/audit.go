@@ -33,6 +33,17 @@ var debugSleep time.Duration
 // DESCRIPTOR_NOT_FOUND envelope without contaminating findings.
 var descriptorPath string
 
+// probeEnabled mirrors --probe. Default off keeps the audit byte-
+// identical to S04 (only --help and --afcli-bogus-flag exec'd).
+// T03 wires this through Engine.ProbeEnabled to drive the
+// descriptor-authorized behavioral-capture pass.
+var probeEnabled bool
+
+// probeTimeout mirrors --probe-timeout. It bounds every probe the engine
+// runs (--help, --afcli-bogus-flag, and behavioral probes), defaulting
+// to 5s so a hanging target cannot wedge the audit.
+var probeTimeout time.Duration
+
 // errInterrupted is returned by audit's RunE after it has already written
 // a partial report to stdout in response to SIGINT/SIGTERM. Execute()
 // recognises this sentinel and exits 130 without re-rendering.
@@ -87,7 +98,10 @@ var auditCmd = &cobra.Command{
 			r.StartedAt = ""
 		}
 
-		audit.DefaultEngine().Run(ctx, resolved, r, d)
+		eng := audit.DefaultEngine()
+		eng.ProbeEnabled = probeEnabled
+		eng.ProbeTimeout = probeTimeout
+		eng.Run(ctx, resolved, r, d)
 
 		if debugSleep > 0 {
 			select {
@@ -113,6 +127,8 @@ func init() {
 	auditCmd.Flags().DurationVar(&debugSleep, "debug-sleep", 0, "internal: sleep N before finalizing the audit (used by signal tests)")
 	_ = auditCmd.Flags().MarkHidden("debug-sleep")
 	auditCmd.Flags().StringVar(&descriptorPath, "descriptor", "", "path to afcli.yaml descriptor (skip/relax + S05 probe authorization)")
+	auditCmd.Flags().BoolVar(&probeEnabled, "probe", false, "invoke descriptor.commands.safe[] argv (default off; default-off path is byte-identical to S04)")
+	auditCmd.Flags().DurationVar(&probeTimeout, "probe-timeout", 5*time.Second, "per-probe timeout (default 5s; affects --help, --afcli-bogus-flag, and behavioral probes)")
 }
 
 // markUnfinishedAsSkipped flips any non-terminal Finding to Status=skip

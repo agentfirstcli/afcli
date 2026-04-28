@@ -33,9 +33,17 @@ type CheckEnv struct {
 // Engine is the static check engine. Construct via DefaultEngine for
 // production use; tests build instances directly to inject a fake Probe
 // or override the Registry.
+//
+// ProbeEnabled gates the S05 behavioral-capture pass — when false (the
+// default), Engine.Run continues to execute only the byte-identical S04
+// surface (--help and --afcli-bogus-flag). T03 wires the actual
+// descriptor-authorized probe pass behind this knob; this slice plants
+// the field so the CLI flag and engine plumbing land before semantics
+// change.
 type Engine struct {
 	Registry     map[string]Check
 	ProbeTimeout time.Duration
+	ProbeEnabled bool
 	Probe        func(ctx context.Context, target string, args []string, timeout time.Duration) *Capture
 }
 
