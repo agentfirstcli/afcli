@@ -158,6 +158,7 @@ func buildErrorCodes() []string {
 	codes := []string{
 		report.CodeDescriptorInvalid,
 		report.CodeDescriptorNotFound,
+		report.CodeInitFileExists,
 		report.CodeInternal,
 		report.CodeProbeDenied,
 		report.CodeProbeTimeout,

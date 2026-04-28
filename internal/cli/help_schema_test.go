@@ -33,7 +33,7 @@ func TestBuildHelpSchemaRoot(t *testing.T) {
 	for _, c := range hs.Command.Subcommands {
 		names = append(names, c.Name)
 	}
-	want := []string{"audit", "manifest"}
+	want := []string{"audit", "init", "manifest"}
 	if !reflect.DeepEqual(names, want) {
 		t.Errorf("root subcommands: want %v, got %v", want, names)
 	}
@@ -99,6 +99,7 @@ func TestHelpSchemaErrorCodesExactSet(t *testing.T) {
 	want := []string{
 		"DESCRIPTOR_INVALID",
 		"DESCRIPTOR_NOT_FOUND",
+		"INIT_FILE_EXISTS",
 		"INTERNAL",
 		"PROBE_DENIED",
 		"PROBE_TIMEOUT",

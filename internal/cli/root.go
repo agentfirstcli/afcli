@@ -100,6 +100,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&deterministic, "deterministic", false, "produce deterministic output (zero timestamps/durations, relative paths, stable sort)")
 	rootCmd.PersistentFlags().BoolVar(&helpSchema, "help-schema", false, "emit machine-parseable help schema as JSON and exit")
 	rootCmd.AddCommand(auditCmd)
+	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(manifestCmd)
 }
 

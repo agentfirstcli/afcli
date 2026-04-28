@@ -21,4 +21,5 @@ const (
 	CodeProbeDenied         = "PROBE_DENIED"
 	CodeInternal            = "INTERNAL"
 	CodeUsage               = "USAGE"
+	CodeInitFileExists      = "INIT_FILE_EXISTS"
 )
