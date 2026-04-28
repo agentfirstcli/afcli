@@ -4,6 +4,7 @@ package audit
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/agentfirstcli/afcli/internal/descriptor"
@@ -22,12 +23,16 @@ const (
 type Check func(ctx context.Context, env *CheckEnv) report.Finding
 
 // CheckEnv is the read-only environment passed to every Check. Probes are
-// captured once per audit and shared across all 16 checks.
+// captured once per audit and shared across all 16 checks. Behavioral is
+// the descriptor-authorized capture pass populated by Engine.Run when
+// ProbeEnabled && d != nil; it is nil otherwise. Iteration order
+// matches descriptor.Commands.Safe[] declaration order — never sorted.
 type CheckEnv struct {
-	Target    string
-	Principle manifest.Principle
-	Help      *Capture
-	Bogus     *Capture
+	Target     string
+	Principle  manifest.Principle
+	Help       *Capture
+	Bogus      *Capture
+	Behavioral []BehavioralCapture
 }
 
 // Engine is the static check engine. Construct via DefaultEngine for
@@ -44,7 +49,7 @@ type Engine struct {
 	Registry     map[string]Check
 	ProbeTimeout time.Duration
 	ProbeEnabled bool
-	Probe        func(ctx context.Context, target string, args []string, timeout time.Duration) *Capture
+	Probe        func(ctx context.Context, target string, args []string, timeout time.Duration, extraEnv map[string]string) *Capture
 }
 
 // DefaultEngine returns an Engine wired with the S03 check registry.
@@ -73,11 +78,29 @@ func DefaultEngine() *Engine {
 // each post-check finding's severity. Engine never sorts — normalizeReport
 // in the renderer is the single sort site (MEM007).
 func (e *Engine) Run(ctx context.Context, target string, r *report.Report, d *descriptor.Descriptor) {
-	help := e.Probe(ctx, target, []string{"--help"}, e.ProbeTimeout)
-	bogus := e.Probe(ctx, target, []string{bogusFlagArg}, e.ProbeTimeout)
+	help := e.Probe(ctx, target, []string{"--help"}, e.ProbeTimeout, nil)
+	bogus := e.Probe(ctx, target, []string{bogusFlagArg}, e.ProbeTimeout, nil)
+
+	var behavioral []BehavioralCapture
+	if e.ProbeEnabled && d != nil {
+		for _, entry := range d.Commands.Safe {
+			argv := strings.Fields(entry)
+			if len(argv) == 0 {
+				continue
+			}
+			bc := BehavioralCapture{Cmd: entry, Argv: argv}
+			if err := authorizeProbe(d, argv); err != nil {
+				bc.Capture = &Capture{Args: argv, Err: err}
+				behavioral = append(behavioral, bc)
+				continue
+			}
+			bc.Capture = e.Probe(ctx, target, argv, e.ProbeTimeout, d.Env)
+			behavioral = append(behavioral, bc)
+		}
+	}
 
 	for _, p := range manifest.Embedded.Principles {
-		env := &CheckEnv{Target: target, Principle: p, Help: help, Bogus: bogus}
+		env := &CheckEnv{Target: target, Principle: p, Help: help, Bogus: bogus, Behavioral: behavioral}
 		if descriptor.ShouldSkip(d, p.PrincipleID()) {
 			f := baseFinding(env)
 			f.Status = report.StatusSkip

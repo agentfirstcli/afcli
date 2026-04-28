@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"sort"
 	"time"
 )
 
@@ -53,18 +54,34 @@ func IsProbeCancelled(err error) bool {
 // runProbe invokes target with args under a per-probe timeout. Env is
 // intentionally minimal and locale-stable so evidence strings are
 // byte-stable across machines and CI runs. ctx threading preserves the
-// SIGINT cancellation contract from S01.
-func runProbe(ctx context.Context, target string, args []string, timeout time.Duration) *Capture {
+// SIGINT cancellation contract from S01. extraEnv (typically
+// descriptor.Env) is appended AFTER the locale-stable defaults — Go's
+// exec uses last-wins semantics for repeated keys in cmd.Env, so
+// descriptor entries override LC_ALL/LANG/PATH/GIT_PAGER for that probe
+// only. Iteration is sorted by key so two runs with identical inputs
+// produce byte-identical subprocess environments (determinism).
+func runProbe(ctx context.Context, target string, args []string, timeout time.Duration, extraEnv map[string]string) *Capture {
 	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(probeCtx, target, args...)
-	cmd.Env = []string{
+	env := []string{
 		"PATH=" + os.Getenv("PATH"),
 		"LC_ALL=C",
 		"LANG=C",
 		"GIT_PAGER=cat",
 	}
+	if len(extraEnv) > 0 {
+		keys := make([]string, 0, len(extraEnv))
+		for k := range extraEnv {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			env = append(env, k+"="+extraEnv[k])
+		}
+	}
+	cmd.Env = env
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

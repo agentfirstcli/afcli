@@ -12,7 +12,7 @@ import (
 	"github.com/agentfirstcli/afcli/internal/report"
 )
 
-func fakeOKProbe(_ context.Context, _ string, args []string, _ time.Duration) *Capture {
+func fakeOKProbe(_ context.Context, _ string, args []string, _ time.Duration, _ map[string]string) *Capture {
 	return &Capture{Args: args, Stdout: "fake stdout", Stderr: "", ExitCode: 0}
 }
 
@@ -179,7 +179,7 @@ func TestRunProbeRespectsContextCancel(t *testing.T) {
 	}
 
 	start := time.Now()
-	c := runProbe(context.Background(), "/bin/sleep", []string{"5"}, 100*time.Millisecond)
+	c := runProbe(context.Background(), "/bin/sleep", []string{"5"}, 100*time.Millisecond, nil)
 	dur := time.Since(start)
 
 	if c.Err == nil && c.ExitCode == 0 {
