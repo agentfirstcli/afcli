@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agentfirstcli/afcli/testdata/report.schema.json",
+  "title": "afcli audit report",
+  "description": "Canonical schema for afcli audit JSON output. Frozen in M001/S01 — adding fields is a manifest_version bump.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "afcli_version",
+    "target",
+    "started_at",
+    "duration_ms",
+    "findings"
+  ],
+  "properties": {
+    "manifest_version": { "type": "string", "minLength": 1 },
+    "afcli_version":    { "type": "string", "minLength": 1 },
+    "target":           { "type": "string" },
+    "started_at":       { "type": "string" },
+    "duration_ms":      { "type": "integer", "minimum": 0 },
+    "interrupted":      { "type": "boolean" },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "error": { "$ref": "#/$defs/errorEnvelope" }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principle_id",
+        "title",
+        "category",
+        "status",
+        "kind",
+        "severity",
+        "evidence",
+        "recommendation"
+      ],
+      "properties": {
+        "principle_id": {
+          "type": "string",
+          "pattern": "^P\\d+$"
+        },
+        "title":          { "type": "string", "minLength": 1 },
+        "category":       { "type": "string", "minLength": 1 },
+        "status":         { "enum": ["pass", "fail", "skip", "review"] },
+        "kind":           { "enum": ["automated", "requires-review"] },
+        "severity":       { "enum": ["low", "medium", "high", "critical"] },
+        "evidence":       { "type": "string" },
+        "recommendation": { "type": "string" },
+        "hint":           { "type": "string" }
+      }
+    },
+    "errorEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "enum": [
+            "TARGET_NOT_FOUND",
+            "TARGET_NOT_EXECUTABLE",
+            "DESCRIPTOR_INVALID",
+            "DESCRIPTOR_NOT_FOUND",
+            "PROBE_TIMEOUT",
+            "PROBE_DENIED",
+            "INTERNAL",
+            "USAGE"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "hint":    { "type": "string" },
+        "details": { "type": "object" }
+      }
+    }
+  }
+}
