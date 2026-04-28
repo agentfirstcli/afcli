@@ -83,11 +83,15 @@ assert_empty() {
 }
 
 # ---- Case 1: success, --output json ----
+# S03 wired the static check engine into RunE, so /bin/echo now produces 16
+# findings instead of the S01-era empty array — the S01 envelope contract
+# being verified here is the report shape (manifest/afcli versions, target,
+# findings key on stdout, empty stderr), not the absent-engine placeholder.
 run_case audit-json audit /bin/echo --output json
 if assert_exit audit-json 0; then
     assert_contains audit-json stdout '"manifest_version"' && \
     assert_contains audit-json stdout '"afcli_version"' && \
-    assert_contains audit-json stdout '"findings": []' && \
+    assert_contains audit-json stdout '"findings":' && \
     assert_contains audit-json stdout '"target":' && \
     assert_empty    audit-json stderr && \
     pass audit-json
@@ -98,7 +102,6 @@ run_case audit-text audit /bin/echo --output text
 if assert_exit audit-text 0; then
     assert_contains audit-text stdout "afcli " && \
     assert_contains audit-text stdout "manifest " && \
-    assert_contains audit-text stdout "no findings" && \
     assert_empty    audit-text stderr && \
     pass audit-text
 fi
@@ -108,7 +111,6 @@ run_case audit-md audit /bin/echo --output markdown
 if assert_exit audit-md 0; then
     assert_contains audit-md stdout "# afcli audit report" && \
     assert_contains audit-md stdout "manifest_version" && \
-    assert_contains audit-md stdout "_no findings_" && \
     assert_empty    audit-md stderr && \
     pass audit-md
 fi
