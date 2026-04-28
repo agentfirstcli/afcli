@@ -106,9 +106,6 @@ docker_manifests:
       - "agentfirstcli/afcli:{{ .Version }}-amd64"
       - "agentfirstcli/afcli:{{ .Version }}-arm64"
 
-release:
-  disable: true
-
 changelog:
   disable: true
 
