@@ -1,0 +1,153 @@
+{
+  "name": "Agent-First CLI",
+  "version": "0.0.1",
+  "last_modified": "2026-04-16T12:33:24+02:00",
+  "url": "https://agentfirstcli.github.io",
+  "description": "16 principles for building CLIs that serve both humans and machines.",
+  "principles": [
+    {
+      "number": 1,
+      "title": "Structured Output",
+      "tagline": "Data over decoration.",
+      "category": "Output",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/structured-output/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/structured-output.md"
+    },
+    {
+      "number": 2,
+      "title": "Token Efficiency",
+      "tagline": "Signal over noise.",
+      "category": "Output",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/token-efficiency/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/token-efficiency.md"
+    },
+    {
+      "number": 3,
+      "title": "Deterministic Ordering",
+      "tagline": "Predictable over pretty.",
+      "category": "Output",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/deterministic-ordering/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/deterministic-ordering.md"
+    },
+    {
+      "number": 4,
+      "title": "Structured Progress",
+      "tagline": "Events over animations.",
+      "category": "Output",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/structured-progress/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/structured-progress.md"
+    },
+    {
+      "number": 5,
+      "title": "Partial Failure Output",
+      "tagline": "Partial truth over total silence.",
+      "category": "Output",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/partial-failure/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/partial-failure.md"
+    },
+    {
+      "number": 6,
+      "title": "Semantic Exit Codes",
+      "tagline": "Meaning over convention.",
+      "category": "Errors & Exit",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/semantic-exit-codes/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/semantic-exit-codes.md"
+    },
+    {
+      "number": 7,
+      "title": "Parseable Errors",
+      "tagline": "Codes over prose.",
+      "category": "Errors & Exit",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/parseable-errors/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/parseable-errors.md"
+    },
+    {
+      "number": 8,
+      "title": "Non-Interactive Default",
+      "tagline": "Automation over assumption.",
+      "category": "Behavior",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/non-interactive-default/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/non-interactive-default.md"
+    },
+    {
+      "number": 9,
+      "title": "Idempotent Operations",
+      "tagline": "Convergence over sequence.",
+      "category": "Behavior",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/idempotent-operations/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/idempotent-operations.md"
+    },
+    {
+      "number": 10,
+      "title": "Faithful Dry Run",
+      "tagline": "Simulation over approximation.",
+      "category": "Behavior",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/faithful-dry-run/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/faithful-dry-run.md"
+    },
+    {
+      "number": 11,
+      "title": "Graceful Cancellation",
+      "tagline": "Cleanup over corruption.",
+      "category": "Behavior",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/graceful-cancellation/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/graceful-cancellation.md"
+    },
+    {
+      "number": 12,
+      "title": "Stable Schema",
+      "tagline": "Contract over convenience.",
+      "category": "Contracts & Stability",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/stable-schema/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/stable-schema.md"
+    },
+    {
+      "number": 13,
+      "title": "Stable Flags",
+      "tagline": "Contract over changelog.",
+      "category": "Contracts & Stability",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/stable-flags/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/stable-flags.md"
+    },
+    {
+      "number": 14,
+      "title": "Capability Negotiation",
+      "tagline": "Query over guess.",
+      "category": "Contracts & Stability",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/capability-negotiation/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/capability-negotiation.md"
+    },
+    {
+      "number": 15,
+      "title": "Machine-Readable Help",
+      "tagline": "Introspection over documentation.",
+      "category": "Discoverability",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/machine-readable-help/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/machine-readable-help.md"
+    },
+    {
+      "number": 16,
+      "title": "Signal Danger",
+      "tagline": "Guardrails over good luck.",
+      "category": "Safety",
+      "last_modified": "2026-04-16T12:33:24+02:00",
+      "url": "https://agentfirstcli.github.io/principles/signal-danger/",
+      "markdown_url": "https://agentfirstcli.github.io/principles/signal-danger.md"
+    }
+  ]
+}
