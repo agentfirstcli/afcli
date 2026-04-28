@@ -279,7 +279,7 @@ func TestDefaultEngineProducesFiveAutomatedAndElevenStubFindings(t *testing.T) {
 		Probe:        fakeOKProbe,
 	}
 	r := &report.Report{Findings: []report.Finding{}}
-	eng.Run(context.Background(), "/fake", r)
+	eng.Run(context.Background(), "/fake", r, nil)
 
 	if len(r.Findings) != 16 {
 		t.Fatalf("len(findings) = %d, want 16", len(r.Findings))

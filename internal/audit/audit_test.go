@@ -20,7 +20,7 @@ func TestEngineProducesAllSixteenStubFindings(t *testing.T) {
 	r := &report.Report{Findings: []report.Finding{}}
 	eng := &Engine{Registry: nil, ProbeTimeout: 5 * time.Second, Probe: fakeOKProbe}
 
-	eng.Run(context.Background(), "/fake", r)
+	eng.Run(context.Background(), "/fake", r, nil)
 
 	if len(r.Findings) != 16 {
 		t.Fatalf("expected 16 findings, got %d", len(r.Findings))
@@ -49,7 +49,7 @@ func TestEnginePanicIsolation(t *testing.T) {
 		Probe:        fakeOKProbe,
 	}
 
-	eng.Run(context.Background(), "/fake", r)
+	eng.Run(context.Background(), "/fake", r, nil)
 
 	if len(r.Findings) != 16 {
 		t.Fatalf("panic must not abort audit: expected 16 findings, got %d", len(r.Findings))
@@ -99,7 +99,7 @@ func TestEnginePanicDoesNotChangeExitMapping(t *testing.T) {
 		Probe:        fakeOKProbe,
 	}
 
-	eng.Run(context.Background(), "/fake", r)
+	eng.Run(context.Background(), "/fake", r, nil)
 
 	code := exit.MapFromReport(r, report.SeverityHigh)
 	if code != exit.OK {

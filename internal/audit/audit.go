@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/agentfirstcli/afcli/internal/descriptor"
 	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
 )
@@ -57,20 +58,34 @@ func DefaultEngine() *Engine {
 
 // Run iterates every principle in manifest.Embedded.Principles, executes
 // each registered Check (or stubCheck) inside safeRun, and appends each
-// finding to r.Findings. Probes are captured ONCE before any check runs.
-// Engine never sorts — normalizeReport in the renderer is the single sort
-// site (MEM007).
-func (e *Engine) Run(ctx context.Context, target string, r *report.Report) {
+// finding to r.Findings. Probes are captured ONCE before any check runs
+// (they're cheap and S05 reuses them regardless of descriptor policy).
+// When d != nil, descriptor.ShouldSkip short-circuits a principle to a
+// synthetic skip finding before any check runs, and descriptor.Apply caps
+// each post-check finding's severity. Engine never sorts — normalizeReport
+// in the renderer is the single sort site (MEM007).
+func (e *Engine) Run(ctx context.Context, target string, r *report.Report, d *descriptor.Descriptor) {
 	help := e.Probe(ctx, target, []string{"--help"}, e.ProbeTimeout)
 	bogus := e.Probe(ctx, target, []string{bogusFlagArg}, e.ProbeTimeout)
 
 	for _, p := range manifest.Embedded.Principles {
 		env := &CheckEnv{Target: target, Principle: p, Help: help, Bogus: bogus}
+		if descriptor.ShouldSkip(d, p.PrincipleID()) {
+			f := baseFinding(env)
+			f.Status = report.StatusSkip
+			f.Kind = report.KindRequiresReview
+			f.Evidence = "skipped per descriptor"
+			f.Recommendation = "remove from skip_principles to re-enable this check"
+			r.Findings = append(r.Findings, f)
+			continue
+		}
 		check, ok := e.Registry[p.PrincipleID()]
 		if !ok {
 			check = stubCheck
 		}
-		r.Findings = append(r.Findings, e.safeRun(ctx, env, p, check))
+		f := e.safeRun(ctx, env, p, check)
+		descriptor.Apply(d, &f)
+		r.Findings = append(r.Findings, f)
 	}
 }
 

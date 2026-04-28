@@ -70,7 +70,7 @@ var auditCmd = &cobra.Command{
 			r.StartedAt = ""
 		}
 
-		audit.DefaultEngine().Run(ctx, resolved, r)
+		audit.DefaultEngine().Run(ctx, resolved, r, nil)
 
 		if debugSleep > 0 {
 			select {
