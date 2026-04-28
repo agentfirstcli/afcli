@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
 )
 
@@ -60,7 +61,7 @@ func renderReport(w io.Writer, r *report.Report, opts report.RenderOptions, form
 // envelopes schema-valid.
 func renderEnvelope(w io.Writer, env *report.ErrorEnvelope, target string, opts report.RenderOptions, format string) error {
 	r := &report.Report{
-		ManifestVersion: manifestVersionPlaceholder,
+		ManifestVersion: manifest.Embedded.Version,
 		AfcliVersion:    afcliVersion,
 		Target:          target,
 		StartedAt:       startedAt(opts),

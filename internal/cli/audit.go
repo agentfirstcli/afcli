@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/agentfirstcli/afcli/internal/exit"
+	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
 	"github.com/spf13/cobra"
 )
@@ -15,12 +16,6 @@ import (
 // afcliVersion is the binary's reported version. Hard-coded for S01;
 // populated from build flags in a later milestone.
 const afcliVersion = "0.0.0-dev"
-
-// manifestVersionPlaceholder fills the contract-required manifest_version
-// field until the embedded manifest lands in S02. The schema requires a
-// non-empty string here, so a placeholder keeps stderr/stdout reports
-// schema-valid even when no real manifest is yet bound to the binary.
-const manifestVersionPlaceholder = "v0-placeholder"
 
 // debugSleep simulates a slow audit so the signal-interrupt integration
 // test can SIGINT a running invocation. Hidden — not part of the public
@@ -51,7 +46,7 @@ var auditCmd = &cobra.Command{
 
 		started := time.Now().UTC()
 		r := &report.Report{
-			ManifestVersion: manifestVersionPlaceholder,
+			ManifestVersion: manifest.Embedded.Version,
 			AfcliVersion:    afcliVersion,
 			Target:          resolved,
 			StartedAt:       started.Format(time.RFC3339Nano),

@@ -84,6 +84,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&outputFormat, "output", "json", "output format: json, text, or markdown")
 	rootCmd.PersistentFlags().BoolVar(&deterministic, "deterministic", false, "produce deterministic output (zero timestamps/durations, relative paths, stable sort)")
 	rootCmd.AddCommand(auditCmd)
+	rootCmd.AddCommand(manifestCmd)
 }
 
 // Execute runs the root Cobra command and translates its outcome into a
