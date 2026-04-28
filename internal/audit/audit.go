@@ -53,21 +53,28 @@ type Engine struct {
 	Probe        func(ctx context.Context, target string, args []string, timeout time.Duration, extraEnv map[string]string) *Capture
 }
 
-// DefaultEngine returns an Engine wired with the S03 + S06-T02 check
-// registry. The five real S03 checks (P6/P7/P14/P15/P16) are registered
-// alongside five S06 review-only checks (P2/P5/P9/P11/P12). The remaining
-// 6 principles fall through to stubCheck via Engine.Run until S06-T03
-// closes them.
+// DefaultEngine returns an Engine wired with the full S03+S06 check
+// registry — all 16 principles produce real, principle-specific findings
+// and stubCheck is unreachable in production. P6/P7/P14/P15/P16 are S03
+// heuristic checks; P2/P5/P9/P11/P12 are S06 review-only checks; P1/P4/
+// P10/P13 are static-affordance heuristics that lift to pass on a positive
+// token match; P3/P8 are review-only with principle-specific rationale.
 func DefaultEngine() *Engine {
 	return &Engine{
 		Registry: map[string]Check{
+			"P1":  checkP1,
 			"P2":  checkP2,
+			"P3":  checkP3,
+			"P4":  checkP4,
 			"P5":  checkP5,
 			"P6":  checkP6,
 			"P7":  checkP7,
+			"P8":  checkP8,
 			"P9":  checkP9,
+			"P10": checkP10,
 			"P11": checkP11,
 			"P12": checkP12,
+			"P13": checkP13,
 			"P14": checkP14,
 			"P15": checkP15,
 			"P16": checkP16,

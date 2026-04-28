@@ -85,8 +85,12 @@ func skipIfNoGit(t *testing.T) {
 }
 
 // TestAuditGitProducesSixteenFindings — DefaultEngine must always emit one
-// finding per manifest principle (R008 every-principle-signal). Five are
-// real automated checks; eleven fall through to stubCheck.
+// finding per manifest principle (R008 every-principle-signal). After
+// S06, all 16 principles produce real findings: nine carry kind:automated
+// (P1/P4/P6/P7/P10/P13/P14/P15/P16 — heuristic checks that read --help
+// or --bogus output); seven carry kind:requires-review (P2/P3/P5/P8/P9/
+// P11/P12 — review-only checks whose verdict is probe-independent or
+// out-of-scope for v1). No finding may carry the stub blurb.
 func TestAuditGitProducesSixteenFindings(t *testing.T) {
 	skipIfNoGit(t)
 
@@ -103,31 +107,44 @@ func TestAuditGitProducesSixteenFindings(t *testing.T) {
 		t.Fatalf("manifest_version: want 0.0.1, got %q", r.ManifestVersion)
 	}
 
-	realIDs := map[string]bool{"P6": true, "P7": true, "P14": true, "P15": true, "P16": true}
+	automatedIDs := map[string]bool{
+		"P1": true, "P4": true, "P6": true, "P7": true, "P10": true,
+		"P13": true, "P14": true, "P15": true, "P16": true,
+	}
+	reviewOnlyIDs := map[string]bool{
+		"P2": true, "P3": true, "P5": true, "P8": true, "P9": true,
+		"P11": true, "P12": true,
+	}
 	autoCount := 0
-	stubCount := 0
+	reviewCount := 0
 	for _, f := range r.Findings {
 		if f.PrincipleID == "" || f.Title == "" || f.Category == "" ||
 			f.Status == "" || f.Kind == "" || f.Severity == "" {
 			t.Errorf("finding %s missing required field: %+v", f.PrincipleID, f)
 		}
+		if strings.Contains(f.Evidence, "no automated check yet") {
+			t.Errorf("finding %s still carries stub blurb: %q", f.PrincipleID, f.Evidence)
+		}
 		switch f.Kind {
 		case "automated":
 			autoCount++
-			if !realIDs[f.PrincipleID] {
-				t.Errorf("unexpected automated kind on stub principle %s", f.PrincipleID)
+			if !automatedIDs[f.PrincipleID] {
+				t.Errorf("unexpected automated kind on principle %s", f.PrincipleID)
 			}
 		case "requires-review":
-			stubCount++
+			reviewCount++
+			if !reviewOnlyIDs[f.PrincipleID] {
+				t.Errorf("unexpected requires-review kind on principle %s", f.PrincipleID)
+			}
 		default:
 			t.Errorf("unknown kind %q on %s", f.Kind, f.PrincipleID)
 		}
 	}
-	if autoCount != 5 {
-		t.Errorf("automated findings: want 5, got %d", autoCount)
+	if autoCount != 9 {
+		t.Errorf("automated findings: want 9, got %d", autoCount)
 	}
-	if stubCount != 11 {
-		t.Errorf("requires-review findings: want 11, got %d", stubCount)
+	if reviewCount != 7 {
+		t.Errorf("requires-review findings: want 7, got %d", reviewCount)
 	}
 }
 

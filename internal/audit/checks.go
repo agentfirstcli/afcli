@@ -57,6 +57,37 @@ var p16Tokens = []string{
 	"irreversible",
 }
 
+// p1Tokens scans for OUTPUT FORMAT DECLARATIONS (distinct from P15's
+// INTROSPECTION affordances) so the two checks can disagree on the same
+// --help text without one implying the other.
+var p1Tokens = []string{
+	"--output json",
+	"--output ndjson",
+	"--output yaml",
+	"--output csv",
+	"--json",
+	"--ndjson",
+	"--format json",
+}
+
+var p4Tokens = []string{
+	"--progress",
+	"--quiet",
+	"--silent",
+	"--no-progress",
+}
+
+var p10Tokens = []string{
+	"--dry-run",
+	"--simulate",
+	"--check",
+	"--what-if",
+}
+
+var p13Tokens = []string{
+	"--version",
+}
+
 // baseFinding builds the manifest-derived finding skeleton used by every
 // real check. Status / Kind / Evidence / Recommendation are filled by
 // the caller so each branch is self-contained and never overwrites a
@@ -269,5 +300,146 @@ func checkP16(_ context.Context, env *CheckEnv) report.Finding {
 	f.Status = report.StatusReview
 	f.Evidence = "no danger or confirmation-bypass keywords found in --help"
 	f.Recommendation = "document destructive operations and confirmation-bypass flags in --help"
+	return f
+}
+
+// checkP1 — Structured Output. Pass when --help advertises a parseable
+// output format (JSON / NDJSON / YAML / CSV); review otherwise. Scoped to
+// OUTPUT FORMAT DECLARATIONS so it can disagree with P15 (which scans for
+// machine-readable INTROSPECTION affordances).
+func checkP1(_ context.Context, env *CheckEnv) report.Finding {
+	if env.Help != nil && env.Help.Err != nil {
+		return probeFailedFinding(env, env.Help.Err)
+	}
+
+	f := baseFinding(env)
+	f.Kind = report.KindAutomated
+
+	text := combined(env.Help)
+	for _, tok := range p1Tokens {
+		if strings.Contains(text, tok) {
+			f.Status = report.StatusPass
+			f.Evidence = truncateEvidence(tok)
+			f.Recommendation = "keep advertising structured output formats in --help"
+			return f
+		}
+	}
+
+	f.Status = report.StatusReview
+	f.Evidence = "--help advertises no structured output format (json/ndjson/yaml/csv)"
+	f.Recommendation = "add --output json (or --json) so callers can parse output mechanically"
+	return f
+}
+
+// checkP3 — Deterministic Ordering. Always emits status:review,
+// kind:requires-review because cross-run determinism requires multiple
+// invocations of the same command, which is out of scope for v1. Evidence
+// varies on whether the descriptor authorized any behavioral captures so
+// an agent reading the report can tell "we ran nothing" from "we ran but
+// did not compare". Coexists with decorateP3WithProbeEvidence: when a
+// behavioral probe fails the aggregator replaces this finding with
+// evidence-rich text; on a clean run this review finding survives.
+func checkP3(_ context.Context, env *CheckEnv) report.Finding {
+	f := baseFinding(env)
+	f.Status = report.StatusReview
+	f.Kind = report.KindRequiresReview
+	if len(env.Behavioral) == 0 {
+		f.Evidence = "deterministic-ordering analysis requires multiple invocations of the same command — out of scope for v1"
+	} else {
+		f.Evidence = "behavioral probes ran but determinism comparison across runs is out of scope for v1"
+	}
+	f.Recommendation = "document output ordering guarantees in --help and run multiple invocations to compare"
+	return f
+}
+
+// checkP4 — Structured Progress. Pass when --help exposes a progress or
+// silence affordance; review otherwise.
+func checkP4(_ context.Context, env *CheckEnv) report.Finding {
+	if env.Help != nil && env.Help.Err != nil {
+		return probeFailedFinding(env, env.Help.Err)
+	}
+
+	f := baseFinding(env)
+	f.Kind = report.KindAutomated
+
+	text := combined(env.Help)
+	for _, tok := range p4Tokens {
+		if strings.Contains(text, tok) {
+			f.Status = report.StatusPass
+			f.Evidence = truncateEvidence(tok)
+			f.Recommendation = "keep exposing progress / silence affordances"
+			return f
+		}
+	}
+
+	f.Status = report.StatusReview
+	f.Evidence = "--help shows no progress or silence affordances"
+	f.Recommendation = "expose --progress / --quiet so agents can choose between event streams and silence"
+	return f
+}
+
+// checkP8 — Non-Interactive Default. Review-only for v1: the canonical
+// signal needs a </dev/null stdin probe we do not yet run. Lives here
+// (not checks_review.go) so a v2 token-based heuristic lands diff-local
+// to the other static-affordance checks.
+func checkP8(_ context.Context, env *CheckEnv) report.Finding {
+	f := baseFinding(env)
+	f.Status = report.StatusReview
+	f.Kind = report.KindRequiresReview
+	f.Evidence = "non-interactive-default detection requires a </dev/null stdin probe — out of scope for v1"
+	f.Recommendation = "ensure the CLI never prompts when stdin is not a TTY; document this behavior in --help"
+	return f
+}
+
+// checkP10 — Faithful Dry Run. Pass when --help advertises a dry-run /
+// simulate / check affordance; review otherwise.
+func checkP10(_ context.Context, env *CheckEnv) report.Finding {
+	if env.Help != nil && env.Help.Err != nil {
+		return probeFailedFinding(env, env.Help.Err)
+	}
+
+	f := baseFinding(env)
+	f.Kind = report.KindAutomated
+
+	text := combined(env.Help)
+	for _, tok := range p10Tokens {
+		if strings.Contains(text, tok) {
+			f.Status = report.StatusPass
+			f.Evidence = truncateEvidence(tok)
+			f.Recommendation = "keep advertising the dry-run affordance in --help"
+			return f
+		}
+	}
+
+	f.Status = report.StatusReview
+	f.Evidence = "--help advertises no dry-run / simulate / check affordance"
+	f.Recommendation = "add --dry-run that performs all checks and exits without side effects"
+	return f
+}
+
+// checkP13 — Stable Flags. Pass when --help advertises --version so
+// callers can pin to known flag surfaces. Token reuse with P14 is
+// intentional: the principles enforce different invariants.
+func checkP13(_ context.Context, env *CheckEnv) report.Finding {
+	if env.Help != nil && env.Help.Err != nil {
+		return probeFailedFinding(env, env.Help.Err)
+	}
+
+	f := baseFinding(env)
+	f.Kind = report.KindAutomated
+
+	text := combined(env.Help)
+	for _, tok := range p13Tokens {
+		if strings.Contains(text, tok) {
+			f.Status = report.StatusPass
+			f.Evidence = truncateEvidence(tok)
+			f.Recommendation = "keep advertising --version so callers can detect version drift"
+			return f
+		}
+	}
+
+	f.Status = report.StatusReview
+	f.Evidence = "--help advertises no --version flag"
+	f.Recommendation = "add --version output so callers can pin to known flag surfaces and detect drift"
 	return f
 }

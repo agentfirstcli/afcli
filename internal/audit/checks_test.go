@@ -259,7 +259,10 @@ func TestAllChecksProduceWellFormedFindings(t *testing.T) {
 
 func TestDefaultEngineRegistersAllRealChecks(t *testing.T) {
 	eng := DefaultEngine()
-	want := []string{"P2", "P5", "P6", "P7", "P9", "P11", "P12", "P14", "P15", "P16"}
+	want := []string{
+		"P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8",
+		"P9", "P10", "P11", "P12", "P13", "P14", "P15", "P16",
+	}
 	if len(eng.Registry) != len(want) {
 		t.Errorf("len(Registry) = %d, want %d", len(eng.Registry), len(want))
 	}
@@ -270,13 +273,16 @@ func TestDefaultEngineRegistersAllRealChecks(t *testing.T) {
 	}
 }
 
-// TestDefaultEngineProducesAllRealChecks exercises the full DefaultEngine
-// wiring (real registry + injected fake probe) and asserts (a) 16 findings
-// total and (b) every registered principle's finding carries non-stub
-// evidence. Interim test — T03 will register the remaining 6 principles
-// and the per-registry-key guard naturally extends to all 16.
-func TestDefaultEngineProducesAllRealChecks(t *testing.T) {
+// TestDefaultEngineProducesAllSixteenRealChecks exercises the full
+// DefaultEngine wiring (real registry + injected fake probe) and asserts
+// (a) 16 entries in the registry, (b) 16 findings produced by Run, and
+// (c) zero findings carry the stub blurb. After T03 every principle has a
+// real check; stubCheck is unreachable in production.
+func TestDefaultEngineProducesAllSixteenRealChecks(t *testing.T) {
 	def := DefaultEngine()
+	if len(def.Registry) != 16 {
+		t.Fatalf("len(DefaultEngine().Registry) = %d, want 16", len(def.Registry))
+	}
 	eng := &Engine{
 		Registry:     def.Registry,
 		ProbeTimeout: def.ProbeTimeout,
@@ -289,11 +295,8 @@ func TestDefaultEngineProducesAllRealChecks(t *testing.T) {
 		t.Fatalf("len(findings) = %d, want 16", len(r.Findings))
 	}
 	for _, f := range r.Findings {
-		if _, registered := def.Registry[f.PrincipleID]; !registered {
-			continue
-		}
 		if strings.Contains(f.Evidence, "no automated check yet") {
-			t.Errorf("principle %s: registered check still emits stub blurb evidence: %q", f.PrincipleID, f.Evidence)
+			t.Errorf("principle %s: finding still carries stub blurb evidence: %q", f.PrincipleID, f.Evidence)
 		}
 	}
 }
@@ -307,6 +310,160 @@ func TestP5(t *testing.T)  { assertReviewOnlyCheck(t, "P5", checkP5) }
 func TestP9(t *testing.T)  { assertReviewOnlyCheck(t, "P9", checkP9) }
 func TestP11(t *testing.T) { assertReviewOnlyCheck(t, "P11", checkP11) }
 func TestP12(t *testing.T) { assertReviewOnlyCheck(t, "P12", checkP12) }
+
+// TestP1 — token-based pass/review. Pass on any --output json /
+// --json / --format json variant; review when --help has no structured
+// output declaration. The token table is intentionally distinct from
+// P15's introspection-affordance scan so the two checks can disagree.
+func TestP1(t *testing.T) {
+	cases := []struct {
+		name       string
+		help       *Capture
+		wantStatus report.Status
+		wantInEv   string
+	}{
+		{"pass-output-json", &Capture{Stdout: "  --output json   structured output\n"}, report.StatusPass, "--output json"},
+		{"pass-output-ndjson", &Capture{Stdout: "  --output ndjson\n"}, report.StatusPass, "--output ndjson"},
+		{"pass-output-yaml", &Capture{Stdout: "  --output yaml\n"}, report.StatusPass, "--output yaml"},
+		{"pass-output-csv", &Capture{Stdout: "  --output csv\n"}, report.StatusPass, "--output csv"},
+		{"pass-json-flag", &Capture{Stdout: "  --json   machine output\n"}, report.StatusPass, "--json"},
+		{"pass-ndjson-flag", &Capture{Stdout: "  --ndjson stream\n"}, report.StatusPass, "--ndjson"},
+		{"pass-format-json", &Capture{Stdout: "  --format json\n"}, report.StatusPass, "--format json"},
+		{"review-no-format", &Capture{Stdout: "Usage: foo [--verbose]"}, report.StatusReview, "no structured output format"},
+		{"review-probe-failed", &Capture{Err: context.DeadlineExceeded}, report.StatusReview, "probe failed"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := envFor(t, "P1", tc.help, &Capture{})
+			f := checkP1(context.Background(), env)
+			if f.Status != tc.wantStatus {
+				t.Errorf("Status = %q, want %q", f.Status, tc.wantStatus)
+			}
+			if !strings.Contains(f.Evidence, tc.wantInEv) {
+				t.Errorf("Evidence = %q, want substring %q", f.Evidence, tc.wantInEv)
+			}
+		})
+	}
+}
+
+// TestP3 — review-only with evidence varying on env.Behavioral length.
+// Empty captures yield the "out of scope for v1" rationale; non-empty
+// captures yield the "ran but did not compare" rationale. Always
+// kind:requires-review.
+func TestP3(t *testing.T) {
+	cases := []struct {
+		name       string
+		behavioral []BehavioralCapture
+		wantInEv   string
+	}{
+		{"empty-behavioral", nil, "requires multiple invocations"},
+		{"populated-behavioral", []BehavioralCapture{{Cmd: "--version", Capture: &Capture{}}}, "behavioral probes ran"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := envFor(t, "P3", &Capture{}, &Capture{})
+			env.Behavioral = tc.behavioral
+			f := checkP3(context.Background(), env)
+			if f.Status != report.StatusReview {
+				t.Errorf("Status = %q, want %q", f.Status, report.StatusReview)
+			}
+			if f.Kind != report.KindRequiresReview {
+				t.Errorf("Kind = %q, want %q", f.Kind, report.KindRequiresReview)
+			}
+			if !strings.Contains(f.Evidence, tc.wantInEv) {
+				t.Errorf("Evidence = %q, want substring %q", f.Evidence, tc.wantInEv)
+			}
+			if !strings.Contains(f.Recommendation, "ordering guarantees") {
+				t.Errorf("Recommendation = %q, want substring %q", f.Recommendation, "ordering guarantees")
+			}
+		})
+	}
+}
+
+func TestP4(t *testing.T) {
+	cases := []struct {
+		name       string
+		help       *Capture
+		wantStatus report.Status
+		wantInEv   string
+	}{
+		{"pass-progress", &Capture{Stdout: "  --progress  show a progress bar\n"}, report.StatusPass, "--progress"},
+		{"pass-quiet", &Capture{Stdout: "  --quiet  suppress output\n"}, report.StatusPass, "--quiet"},
+		{"pass-silent", &Capture{Stdout: "  --silent\n"}, report.StatusPass, "--silent"},
+		{"pass-no-progress", &Capture{Stdout: "  --no-progress\n"}, report.StatusPass, "--no-progress"},
+		{"review-no-progress-flags", &Capture{Stdout: "Usage: foo"}, report.StatusReview, "no progress or silence"},
+		{"review-probe-failed", &Capture{Err: context.DeadlineExceeded}, report.StatusReview, "probe failed"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := envFor(t, "P4", tc.help, &Capture{})
+			f := checkP4(context.Background(), env)
+			if f.Status != tc.wantStatus {
+				t.Errorf("Status = %q, want %q", f.Status, tc.wantStatus)
+			}
+			if !strings.Contains(f.Evidence, tc.wantInEv) {
+				t.Errorf("Evidence = %q, want substring %q", f.Evidence, tc.wantInEv)
+			}
+		})
+	}
+}
+
+// TestP8 — review-only for v1 (the canonical signal needs a </dev/null
+// stdin probe we do not yet run). No probe input is consulted.
+func TestP8(t *testing.T) { assertReviewOnlyCheck(t, "P8", checkP8) }
+
+func TestP10(t *testing.T) {
+	cases := []struct {
+		name       string
+		help       *Capture
+		wantStatus report.Status
+		wantInEv   string
+	}{
+		{"pass-dry-run", &Capture{Stdout: "  --dry-run  simulate only\n"}, report.StatusPass, "--dry-run"},
+		{"pass-simulate", &Capture{Stdout: "  --simulate\n"}, report.StatusPass, "--simulate"},
+		{"pass-check", &Capture{Stdout: "  --check\n"}, report.StatusPass, "--check"},
+		{"pass-what-if", &Capture{Stdout: "  --what-if\n"}, report.StatusPass, "--what-if"},
+		{"review-no-dry-run", &Capture{Stdout: "Usage: foo [--verbose]"}, report.StatusReview, "no dry-run"},
+		{"review-probe-failed", &Capture{Err: context.DeadlineExceeded}, report.StatusReview, "probe failed"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := envFor(t, "P10", tc.help, &Capture{})
+			f := checkP10(context.Background(), env)
+			if f.Status != tc.wantStatus {
+				t.Errorf("Status = %q, want %q", f.Status, tc.wantStatus)
+			}
+			if !strings.Contains(f.Evidence, tc.wantInEv) {
+				t.Errorf("Evidence = %q, want substring %q", f.Evidence, tc.wantInEv)
+			}
+		})
+	}
+}
+
+func TestP13(t *testing.T) {
+	cases := []struct {
+		name       string
+		help       *Capture
+		wantStatus report.Status
+		wantInEv   string
+	}{
+		{"pass-version", &Capture{Stdout: "  --version  print version and exit\n"}, report.StatusPass, "--version"},
+		{"review-no-version", &Capture{Stdout: "Usage: foo [--help]"}, report.StatusReview, "no --version"},
+		{"review-probe-failed", &Capture{Err: context.DeadlineExceeded}, report.StatusReview, "probe failed"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := envFor(t, "P13", tc.help, &Capture{})
+			f := checkP13(context.Background(), env)
+			if f.Status != tc.wantStatus {
+				t.Errorf("Status = %q, want %q", f.Status, tc.wantStatus)
+			}
+			if !strings.Contains(f.Evidence, tc.wantInEv) {
+				t.Errorf("Evidence = %q, want substring %q", f.Evidence, tc.wantInEv)
+			}
+		})
+	}
+}
 
 func assertReviewOnlyCheck(t *testing.T, id string, check Check) {
 	t.Helper()
