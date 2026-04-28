@@ -29,3 +29,7 @@ vendor/
 coverage/
 .cache/
 tmp/
+
+# afcli build output
+/afcli
+/afcli.exe
