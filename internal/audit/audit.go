@@ -53,14 +53,21 @@ type Engine struct {
 	Probe        func(ctx context.Context, target string, args []string, timeout time.Duration, extraEnv map[string]string) *Capture
 }
 
-// DefaultEngine returns an Engine wired with the S03 check registry.
-// The five real S03 checks (P6/P7/P14/P15/P16) are registered; the other
-// 11 principles fall through to stubCheck via Engine.Run.
+// DefaultEngine returns an Engine wired with the S03 + S06-T02 check
+// registry. The five real S03 checks (P6/P7/P14/P15/P16) are registered
+// alongside five S06 review-only checks (P2/P5/P9/P11/P12). The remaining
+// 6 principles fall through to stubCheck via Engine.Run until S06-T03
+// closes them.
 func DefaultEngine() *Engine {
 	return &Engine{
 		Registry: map[string]Check{
+			"P2":  checkP2,
+			"P5":  checkP5,
 			"P6":  checkP6,
 			"P7":  checkP7,
+			"P9":  checkP9,
+			"P11": checkP11,
+			"P12": checkP12,
 			"P14": checkP14,
 			"P15": checkP15,
 			"P16": checkP16,

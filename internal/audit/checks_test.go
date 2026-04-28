@@ -216,7 +216,10 @@ func TestP6BinaryGarbageDoesNotPanic(t *testing.T) {
 }
 
 // TestAllChecksProduceWellFormedFindings asserts the Finding shape contract
-// for every registered check when given an empty Help/Bogus capture.
+// for every registered check when given an empty Help/Bogus capture. Kind
+// is allowed to be either KindAutomated (S03 heuristic checks) or
+// KindRequiresReview (S06 review-only checks like P2/P5/P9/P11/P12 where
+// no automated heuristic is feasible).
 func TestAllChecksProduceWellFormedFindings(t *testing.T) {
 	eng := DefaultEngine()
 	for id, check := range eng.Registry {
@@ -235,8 +238,8 @@ func TestAllChecksProduceWellFormedFindings(t *testing.T) {
 			if f.Status == "" {
 				t.Error("Status empty")
 			}
-			if f.Kind != report.KindAutomated {
-				t.Errorf("Kind = %q, want automated", f.Kind)
+			if f.Kind != report.KindAutomated && f.Kind != report.KindRequiresReview {
+				t.Errorf("Kind = %q, want automated or requires-review", f.Kind)
 			}
 			if f.Severity != severityFor(id) {
 				t.Errorf("Severity = %q, want %q", f.Severity, severityFor(id))
@@ -254,9 +257,9 @@ func TestAllChecksProduceWellFormedFindings(t *testing.T) {
 	}
 }
 
-func TestDefaultEngineRegistersFiveChecks(t *testing.T) {
+func TestDefaultEngineRegistersAllRealChecks(t *testing.T) {
 	eng := DefaultEngine()
-	want := []string{"P6", "P7", "P14", "P15", "P16"}
+	want := []string{"P2", "P5", "P6", "P7", "P9", "P11", "P12", "P14", "P15", "P16"}
 	if len(eng.Registry) != len(want) {
 		t.Errorf("len(Registry) = %d, want %d", len(eng.Registry), len(want))
 	}
@@ -267,11 +270,12 @@ func TestDefaultEngineRegistersFiveChecks(t *testing.T) {
 	}
 }
 
-// TestDefaultEngineProducesFiveAutomatedAndElevenStubFindings exercises
-// the full DefaultEngine wiring (real registry + injected fake probe) and
-// asserts the kind split: 5 automated (P6/P7/P14/P15/P16) + 11 stub
-// (KindRequiresReview) findings, totalling 16.
-func TestDefaultEngineProducesFiveAutomatedAndElevenStubFindings(t *testing.T) {
+// TestDefaultEngineProducesAllRealChecks exercises the full DefaultEngine
+// wiring (real registry + injected fake probe) and asserts (a) 16 findings
+// total and (b) every registered principle's finding carries non-stub
+// evidence. Interim test — T03 will register the remaining 6 principles
+// and the per-registry-key guard naturally extends to all 16.
+func TestDefaultEngineProducesAllRealChecks(t *testing.T) {
 	def := DefaultEngine()
 	eng := &Engine{
 		Registry:     def.Registry,
@@ -284,19 +288,49 @@ func TestDefaultEngineProducesFiveAutomatedAndElevenStubFindings(t *testing.T) {
 	if len(r.Findings) != 16 {
 		t.Fatalf("len(findings) = %d, want 16", len(r.Findings))
 	}
-	var automated, review int
 	for _, f := range r.Findings {
-		switch f.Kind {
-		case report.KindAutomated:
-			automated++
-		case report.KindRequiresReview:
-			review++
+		if _, registered := def.Registry[f.PrincipleID]; !registered {
+			continue
+		}
+		if strings.Contains(f.Evidence, "no automated check yet") {
+			t.Errorf("principle %s: registered check still emits stub blurb evidence: %q", f.PrincipleID, f.Evidence)
 		}
 	}
-	if automated != 5 {
-		t.Errorf("automated = %d, want 5", automated)
+}
+
+// TestP2 / TestP5 / TestP9 / TestP11 / TestP12 — each unconditionally emits
+// status:review, kind:requires-review with principle-specific (non-stub)
+// evidence. These checks read no probe data, so they are robust to nil
+// captures. Severity is sourced from severityFor.
+func TestP2(t *testing.T)  { assertReviewOnlyCheck(t, "P2", checkP2) }
+func TestP5(t *testing.T)  { assertReviewOnlyCheck(t, "P5", checkP5) }
+func TestP9(t *testing.T)  { assertReviewOnlyCheck(t, "P9", checkP9) }
+func TestP11(t *testing.T) { assertReviewOnlyCheck(t, "P11", checkP11) }
+func TestP12(t *testing.T) { assertReviewOnlyCheck(t, "P12", checkP12) }
+
+func assertReviewOnlyCheck(t *testing.T, id string, check Check) {
+	t.Helper()
+	env := envFor(t, id, &Capture{}, &Capture{})
+	f := check(context.Background(), env)
+	if f.PrincipleID != id {
+		t.Errorf("PrincipleID = %q, want %q", f.PrincipleID, id)
 	}
-	if review != 11 {
-		t.Errorf("review = %d, want 11", review)
+	if f.Status != report.StatusReview {
+		t.Errorf("Status = %q, want review", f.Status)
+	}
+	if f.Kind != report.KindRequiresReview {
+		t.Errorf("Kind = %q, want requires-review", f.Kind)
+	}
+	if f.Evidence == "" {
+		t.Error("Evidence empty")
+	}
+	if strings.Contains(f.Evidence, "no automated check yet") {
+		t.Errorf("Evidence still carries stub blurb: %q", f.Evidence)
+	}
+	if f.Recommendation == "" {
+		t.Error("Recommendation empty")
+	}
+	if f.Severity != severityFor(id) {
+		t.Errorf("Severity = %q, want %q", f.Severity, severityFor(id))
 	}
 }
