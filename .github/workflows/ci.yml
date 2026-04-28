@@ -1,0 +1,108 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test-self-audit:
+    name: build-test-self-audit (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: go build
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./... -count=1
+
+      - name: Build production binary
+        run: CGO_ENABLED=0 go build -ldflags='-s -w' -o ./afcli ./cmd/afcli
+
+      - name: Self-audit (golden diff)
+        run: |
+          AFCLI_DETERMINISTIC=1 ./afcli audit ./afcli --output json > /tmp/self-audit.json
+          diff -u testdata/golden-self-audit.json /tmp/self-audit.json
+
+      - name: Self-audit (zero fail findings at default --fail-on high)
+        run: |
+          ./afcli audit ./afcli --output json --deterministic > /tmp/sa.json
+          jq -e '[.findings[].status] | map(. == "fail") | any | not' /tmp/sa.json
+          ./afcli audit ./afcli --output json --deterministic >/dev/null
+
+      - name: Markdown parity
+        run: |
+          ./afcli audit ./afcli --output json --deterministic | jq -r '.findings[].principle_id' | sort > /tmp/json-ids
+          ./afcli audit ./afcli --output markdown --deterministic | grep -oE 'P[0-9]+' | sort -u > /tmp/md-ids
+          diff -u /tmp/json-ids /tmp/md-ids
+
+      - name: External-target schema validation
+        run: |
+          if ! command -v /usr/bin/git >/dev/null 2>&1; then
+            echo "external-target: /usr/bin/git absent — skipping with pass"
+            exit 0
+          fi
+          ./afcli audit /usr/bin/git --output json --deterministic > /tmp/git.json || true
+          jq -e '.findings | length == 16' /tmp/git.json
+          jq -e '.manifest_version' /tmp/git.json
+          jq -e 'all(.findings[]; .principle_id | test("^P[0-9]+$"))' /tmp/git.json
+
+      - name: Run verify-s07.sh
+        run: BIN=./afcli bash scripts/verify-s07.sh
+
+      - name: Dump self-audit on failure
+        if: failure()
+        run: |
+          echo "=== self-audit JSON (deterministic) ==="
+          ./afcli audit ./afcli --output json --deterministic || true
+
+  perf-budgets:
+    name: perf-budgets (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build stripped binary
+        run: CGO_ENABLED=0 go build -ldflags='-s -w' -o ./afcli ./cmd/afcli
+
+      - name: Cold start <100ms
+        shell: bash
+        run: |
+          TIMEFORMAT='%R'
+          elapsed=$( { time ./afcli --help >/dev/null; } 2>&1 )
+          echo "cold-start: ${elapsed}s"
+          awk -v t="$elapsed" 'BEGIN { exit !(t < 0.1) }'
+
+      - name: Static audit <2s
+        shell: bash
+        run: |
+          TIMEFORMAT='%R'
+          elapsed=$( { time ./afcli audit /bin/echo --output json --deterministic >/dev/null; } 2>&1 )
+          echo "static-audit: ${elapsed}s"
+          awk -v t="$elapsed" 'BEGIN { exit !(t < 2.0) }'
+
+      - name: Stripped binary <20MB
+        run: |
+          size=$(wc -c < ./afcli)
+          echo "binary-size: ${size} bytes"
+          [ "$size" -lt 20971520 ]
