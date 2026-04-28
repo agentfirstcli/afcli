@@ -98,6 +98,13 @@ func Execute() {
 		os.Exit(exit.OK)
 	}
 
+	// Interrupt path: the audit handler has already written a partial
+	// report to stdout; we just need to exit with the dedicated 130 code
+	// instead of letting Cobra's error path render a usage envelope.
+	if errors.Is(err, errInterrupted) {
+		os.Exit(exit.Interrupted)
+	}
+
 	opts := report.RenderOptions{Deterministic: resolveDeterministic(deterministic)}
 
 	var ae *auditError

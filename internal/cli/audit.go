@@ -22,6 +22,16 @@ const afcliVersion = "0.0.0-dev"
 // schema-valid even when no real manifest is yet bound to the binary.
 const manifestVersionPlaceholder = "v0-placeholder"
 
+// debugSleep simulates a slow audit so the signal-interrupt integration
+// test can SIGINT a running invocation. Hidden — not part of the public
+// CLI surface. Real audit work in later slices replaces this stub.
+var debugSleep time.Duration
+
+// errInterrupted is returned by audit's RunE after it has already written
+// a partial report to stdout in response to SIGINT/SIGTERM. Execute()
+// recognises this sentinel and exits 130 without re-rendering.
+var errInterrupted = errors.New("audit interrupted")
+
 var auditCmd = &cobra.Command{
 	Use:           "audit <target>",
 	Short:         "Audit a target against agent-first-cli principles",
@@ -35,6 +45,9 @@ var auditCmd = &cobra.Command{
 		if err != nil {
 			return classifyResolveError(target, err)
 		}
+
+		ctx, cleanup := InstallSignalHandler(cmd.Context())
+		defer cleanup()
 
 		started := time.Now().UTC()
 		r := &report.Report{
@@ -50,8 +63,45 @@ var auditCmd = &cobra.Command{
 		if opts.Deterministic {
 			r.StartedAt = ""
 		}
+
+		if debugSleep > 0 {
+			select {
+			case <-time.After(debugSleep):
+			case <-ctx.Done():
+			}
+		}
+
+		if ctx.Err() != nil {
+			r.Interrupted = true
+			markUnfinishedAsSkipped(r)
+			if rerr := renderReport(cmd.OutOrStdout(), r, opts, outputFormat); rerr != nil {
+				return rerr
+			}
+			return errInterrupted
+		}
+
 		return renderReport(cmd.OutOrStdout(), r, opts, outputFormat)
 	},
+}
+
+func init() {
+	auditCmd.Flags().DurationVar(&debugSleep, "debug-sleep", 0, "internal: sleep N before finalizing the audit (used by signal tests)")
+	_ = auditCmd.Flags().MarkHidden("debug-sleep")
+}
+
+// markUnfinishedAsSkipped flips any non-terminal Finding to Status=skip
+// after a signal-driven cancellation. S01 ships zero principles, so this
+// is a no-op today — plumbed now so S05's probe layer can populate
+// in-progress findings and rely on the same finalization path.
+func markUnfinishedAsSkipped(r *report.Report) {
+	for i := range r.Findings {
+		switch r.Findings[i].Status {
+		case report.StatusPass, report.StatusFail, report.StatusSkip, report.StatusReview:
+			// Terminal — leave as-is.
+		default:
+			r.Findings[i].Status = report.StatusSkip
+		}
+	}
 }
 
 // classifyResolveError distinguishes a missing target from an existing
