@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agentfirstcli/afcli/testdata/help-schema.schema.json",
+  "title": "afcli help schema",
+  "description": "Canonical shape of the document emitted by afcli --help-schema. Frozen for schema_version=1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "afcli_version",
+    "manifest_version",
+    "schema_version",
+    "command",
+    "exit_codes",
+    "error_codes"
+  ],
+  "properties": {
+    "afcli_version":    { "type": "string", "minLength": 1 },
+    "manifest_version": { "type": "string", "minLength": 1 },
+    "schema_version":   { "const": "1" },
+    "command":          { "$ref": "#/$defs/command" },
+    "exit_codes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/exitCode" }
+    },
+    "error_codes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "use", "short", "flags", "subcommands"],
+      "properties": {
+        "name":  { "type": "string", "minLength": 1 },
+        "use":   { "type": "string", "minLength": 1 },
+        "short": { "type": "string" },
+        "long":  { "type": "string" },
+        "flags": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/flag" }
+        },
+        "subcommands": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/command" }
+        }
+      }
+    },
+    "flag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "usage", "persistent"],
+      "properties": {
+        "name":       { "type": "string", "minLength": 1 },
+        "shorthand":  { "type": "string" },
+        "type":       { "type": "string", "minLength": 1 },
+        "usage":      { "type": "string" },
+        "default":    { "type": "string" },
+        "persistent": { "type": "boolean" }
+      }
+    },
+    "exitCode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "name", "meaning"],
+      "properties": {
+        "code":    { "type": "integer", "minimum": 0 },
+        "name":    { "type": "string", "minLength": 1 },
+        "meaning": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

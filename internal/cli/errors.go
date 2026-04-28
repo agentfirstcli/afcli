@@ -62,7 +62,7 @@ func renderReport(w io.Writer, r *report.Report, opts report.RenderOptions, form
 func renderEnvelope(w io.Writer, env *report.ErrorEnvelope, target string, opts report.RenderOptions, format string) error {
 	r := &report.Report{
 		ManifestVersion: manifest.Embedded.Version,
-		AfcliVersion:    afcliVersion,
+		AfcliVersion:    AfcliVersion,
 		Target:          target,
 		StartedAt:       startedAt(opts),
 		DurationMs:      0,

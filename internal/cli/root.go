@@ -15,6 +15,7 @@ import (
 var (
 	outputFormat  string
 	deterministic bool
+	helpSchema    bool
 )
 
 // ctxKey is unexported so callers cannot collide with cli's context values.
@@ -76,13 +77,28 @@ var rootCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 		cmd.SetContext(WithDeterministic(ctx, resolveDeterministic(deterministic)))
+		if helpSchema {
+			hs := BuildHelpSchema(cmd)
+			if err := RenderHelpSchema(cmd.OutOrStdout(), hs); err != nil {
+				return err
+			}
+			return errHelpSchema
+		}
 		return nil
+	},
+	// RunE makes rootCmd Runnable so PersistentPreRunE fires when the user
+	// invokes `afcli --help-schema` directly. Without a RunE, Cobra's
+	// execute() returns flag.ErrHelp before any pre-run hook runs and the
+	// help-schema sentinel never gets a chance to short-circuit.
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
 	},
 }
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&outputFormat, "output", "json", "output format: json, text, or markdown")
 	rootCmd.PersistentFlags().BoolVar(&deterministic, "deterministic", false, "produce deterministic output (zero timestamps/durations, relative paths, stable sort)")
+	rootCmd.PersistentFlags().BoolVar(&helpSchema, "help-schema", false, "emit machine-parseable help schema as JSON and exit")
 	rootCmd.AddCommand(auditCmd)
 	rootCmd.AddCommand(manifestCmd)
 }
@@ -96,6 +112,13 @@ func init() {
 func Execute() {
 	err := rootCmd.Execute()
 	if err == nil {
+		os.Exit(exit.OK)
+	}
+
+	// Help-schema short-circuit: PersistentPreRunE already wrote the JSON
+	// document to stdout; the sentinel here just guarantees a clean 0 exit
+	// without invoking any subcommand's RunE.
+	if errors.Is(err, errHelpSchema) {
 		os.Exit(exit.OK)
 	}
 

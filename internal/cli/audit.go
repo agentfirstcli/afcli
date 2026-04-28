@@ -13,9 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// afcliVersion is the binary's reported version. Hard-coded for S01;
-// populated from build flags in a later milestone.
-const afcliVersion = "0.0.0-dev"
+// AfcliVersion is the binary's reported version. Hard-coded for S01;
+// populated from build flags in a later milestone. Exported so the
+// help-schema renderer (and any future introspection surface) can
+// reference it without inviting a circular import.
+const AfcliVersion = "0.0.0-dev"
 
 // debugSleep simulates a slow audit so the signal-interrupt integration
 // test can SIGINT a running invocation. Hidden — not part of the public
@@ -28,9 +30,17 @@ var debugSleep time.Duration
 var errInterrupted = errors.New("audit interrupted")
 
 var auditCmd = &cobra.Command{
-	Use:           "audit <target>",
-	Short:         "Audit a target against agent-first-cli principles",
-	Args:          cobra.ExactArgs(1),
+	Use:   "audit <target>",
+	Short: "Audit a target against agent-first-cli principles",
+	// --help-schema short-circuits in PersistentPreRunE, but Cobra runs
+	// ValidateArgs before PersistentPreRunE — so we have to skip the
+	// arg-count check ourselves when the user is asking for the schema.
+	Args: func(cmd *cobra.Command, args []string) error {
+		if helpSchema {
+			return nil
+		}
+		return cobra.ExactArgs(1)(cmd, args)
+	},
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,7 +57,7 @@ var auditCmd = &cobra.Command{
 		started := time.Now().UTC()
 		r := &report.Report{
 			ManifestVersion: manifest.Embedded.Version,
-			AfcliVersion:    afcliVersion,
+			AfcliVersion:    AfcliVersion,
 			Target:          resolved,
 			StartedAt:       started.Format(time.RFC3339Nano),
 			DurationMs:      0,
