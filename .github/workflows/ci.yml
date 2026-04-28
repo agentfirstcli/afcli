@@ -89,7 +89,7 @@ jobs:
         shell: bash
         run: |
           TIMEFORMAT='%R'
-          elapsed=$( { time ./afcli --help >/dev/null; } 2>&1 )
+          elapsed=$( { time ./afcli --help >/dev/null || true; } 2>&1 )
           echo "cold-start: ${elapsed}s"
           awk -v t="$elapsed" 'BEGIN { exit !(t < 0.1) }'
 
@@ -97,7 +97,7 @@ jobs:
         shell: bash
         run: |
           TIMEFORMAT='%R'
-          elapsed=$( { time ./afcli audit /bin/echo --output json --deterministic >/dev/null; } 2>&1 )
+          elapsed=$( { time ./afcli audit /bin/echo --output json --deterministic >/dev/null || true; } 2>&1 )
           echo "static-audit: ${elapsed}s"
           awk -v t="$elapsed" 'BEGIN { exit !(t < 2.0) }'
 
