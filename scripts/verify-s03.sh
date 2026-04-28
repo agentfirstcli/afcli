@@ -138,8 +138,8 @@ if (( have_git )); then
         assert_jq audit-git-json '.findings | length' '16' && \
         assert_jq audit-git-json '.manifest_version' '0.0.1' && \
         assert_jq audit-git-json '.findings[] | select(.principle_id == "P7") | .status' 'pass' && \
-        assert_jq audit-git-json '[.findings[] | select(.kind == "automated")] | length' '5' && \
-        assert_jq audit-git-json '[.findings[] | select(.kind == "requires-review")] | length' '11' && \
+        assert_jq audit-git-json '[.findings[] | select(.kind == "automated")] | length' '9' && \
+        assert_jq audit-git-json '[.findings[] | select(.kind == "requires-review")] | length' '7' && \
         pass audit-git-json
     fi
 else
