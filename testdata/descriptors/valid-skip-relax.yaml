@@ -1,0 +1,10 @@
+format_version: "1"
+skip_principles:
+  - P12
+relax_principles:
+  P7: medium
+commands:
+  safe:
+    - "--version"
+  destructive: []
+env: {}

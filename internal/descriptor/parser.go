@@ -106,7 +106,7 @@ func decodeErrorToTyped(err error, path string) *Error {
 		if line, ok := firstYAMLLine(typeErr.Errors); ok {
 			details["line"] = line
 		}
-		hint = "check field types — see afcli.yaml schema"
+		hint = "check field types — expected sequence or scalar mismatch (see afcli.yaml schema)"
 	} else if line, ok := firstYAMLLine([]string{msg}); ok {
 		details["line"] = line
 	}
