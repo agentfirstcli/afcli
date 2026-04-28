@@ -1,0 +1,54 @@
+version: 2
+
+project_name: afcli
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: afcli
+    main: ./cmd/afcli
+    binary: afcli
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -mod=readonly
+      - -trimpath
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/agentfirstcli/afcli/internal/version.Version={{.Version}}
+      - -X github.com/agentfirstcli/afcli/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/agentfirstcli/afcli/internal/version.Date={{.Date}}
+
+archives:
+  - id: afcli
+    ids:
+      - afcli
+    name_template: "afcli_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# S02 (Homebrew tap) and S03 (Docker Hub image) add brews/dockers blocks.
+# S04 flips release.disable=false and adds the tag-triggered workflow.
+release:
+  disable: true
+
+changelog:
+  disable: true
