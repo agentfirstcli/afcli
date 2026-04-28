@@ -2,9 +2,13 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	stdtime "time"
 
+	"github.com/agentfirstcli/afcli/internal/exit"
+	"github.com/agentfirstcli/afcli/internal/report"
 	"github.com/spf13/cobra"
 )
 
@@ -49,10 +53,23 @@ func resolveDeterministic(flag bool) bool {
 	return os.Getenv("AFCLI_DETERMINISTIC") == "1"
 }
 
+// startedAt returns an RFC3339Nano timestamp for envelope/report headers,
+// or "" when deterministic mode is requested. Called from the envelope
+// renderer where the audit hasn't actually started — Execute() reaches
+// this code path after Cobra parsing fails.
+func startedAt(opts report.RenderOptions) string {
+	if opts.Deterministic {
+		return ""
+	}
+	return stdtime.Now().UTC().Format(stdtime.RFC3339Nano)
+}
+
 var rootCmd = &cobra.Command{
-	Use:   "afcli",
-	Short: "Agent-first CLI auditor",
-	Long:  "afcli audits binaries and projects against agent-first-cli design principles.",
+	Use:           "afcli",
+	Short:         "Agent-first CLI auditor",
+	Long:          "afcli audits binaries and projects against agent-first-cli design principles.",
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if ctx == nil {
@@ -64,14 +81,36 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&outputFormat, "output", "text", "output format: json, text, or markdown")
+	rootCmd.PersistentFlags().StringVar(&outputFormat, "output", "json", "output format: json, text, or markdown")
 	rootCmd.PersistentFlags().BoolVar(&deterministic, "deterministic", false, "produce deterministic output (zero timestamps/durations, relative paths, stable sort)")
 	rootCmd.AddCommand(auditCmd)
 }
 
+// Execute runs the root Cobra command and translates its outcome into a
+// process exit code. Successful runs exit 0. Audit failures (target
+// missing, target not executable) carry an *auditError and are rendered
+// to stderr in the user-selected format with the carried exit code.
+// Any other Cobra error — unknown flags, bad arg counts, unknown
+// subcommands — is rendered as a USAGE envelope and exits with code 2.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+	err := rootCmd.Execute()
+	if err == nil {
+		os.Exit(exit.OK)
 	}
+
+	opts := report.RenderOptions{Deterministic: resolveDeterministic(deterministic)}
+
+	var ae *auditError
+	if errors.As(err, &ae) {
+		if rerr := renderEnvelope(os.Stderr, ae.envelope, ae.target, opts, outputFormat); rerr != nil {
+			fmt.Fprintln(os.Stderr, rerr)
+		}
+		os.Exit(ae.exitCode)
+	}
+
+	env := usageEnvelope(err)
+	if rerr := renderEnvelope(os.Stderr, env, "", opts, outputFormat); rerr != nil {
+		fmt.Fprintln(os.Stderr, rerr)
+	}
+	os.Exit(exit.Usage)
 }
