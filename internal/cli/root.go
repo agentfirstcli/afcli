@@ -79,6 +79,12 @@ var rootCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 		cmd.SetContext(WithDeterministic(ctx, resolveDeterministic(deterministic)))
+		if versionFlag {
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), version.String()); err != nil {
+				return err
+			}
+			return errVersion
+		}
 		if helpSchema {
 			hs := BuildHelpSchema(cmd)
 			if err := RenderHelpSchema(cmd.OutOrStdout(), hs); err != nil {
