@@ -42,6 +42,13 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
+# Mark GitHub Releases as Pre-release when the tag is a SemVer prerelease
+# (e.g. v0.1.0-rc.1). Without this, goreleaser ships RC tags as "Latest" and
+# consumers browsing the releases page see the RC as the canonical version.
+# `auto` reads the tag itself — stable tags like v0.1.0 stay non-prerelease.
+release:
+  prerelease: auto
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
