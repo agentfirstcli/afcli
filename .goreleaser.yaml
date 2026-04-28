@@ -45,10 +45,39 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
-# S02 (Homebrew tap) and S03 (Docker Hub image) add brews/dockers blocks.
+# S03 (Docker Hub image) adds the dockers block.
 # S04 flips release.disable=false and adds the tag-triggered workflow.
 release:
   disable: true
 
 changelog:
   disable: true
+
+# S02: Homebrew tap auto-commit. Snapshot disables all publishers, so the
+# {{ .Env.HOMEBREW_TAP_TOKEN }} reference is harmless when unset locally.
+# Per D006, RC formulas commit too — do NOT set skip_upload.
+brews:
+  - name: afcli
+    ids:
+      - afcli
+    repository:
+      owner: agentfirstcli
+      name: homebrew-afcli
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    # release.disable=true means goreleaser cannot auto-derive the formula's
+    # url_template from the GitHub Release URL — we must spell it out. S04
+    # flips release.disable=false; the URL pattern stays the same either way.
+    url_template: "https://github.com/agentfirstcli/afcli/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    homepage: "https://github.com/agentfirstcli/afcli"
+    description: "Agent-first CLI auditor for Claude skill descriptors."
+    license: "MIT"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "afcli {{ .Tag }} formula update"
+    install: |
+      bin.install "afcli"
+    test: |
+      system "#{bin}/afcli", "--version"
