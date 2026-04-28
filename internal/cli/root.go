@@ -113,6 +113,17 @@ func init() {
 func Execute() {
 	err := rootCmd.Execute()
 	if err == nil {
+		// Report-aware exit: an audit on the clean rendering path
+		// stashes its final report + threshold so we can route through
+		// exit.MapFromReport. Other clean runs (manifest list, init,
+		// help, --help-schema short-circuit) leave finalReport nil and
+		// fall through to exit.OK.
+		if finalReport != nil {
+			if finalNeverFail {
+				os.Exit(exit.OK)
+			}
+			os.Exit(exit.MapFromReport(finalReport, finalThreshold))
+		}
 		os.Exit(exit.OK)
 	}
 

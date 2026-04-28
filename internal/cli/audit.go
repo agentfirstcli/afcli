@@ -44,10 +44,53 @@ var probeEnabled bool
 // to 5s so a hanging target cannot wedge the audit.
 var probeTimeout time.Duration
 
+// failOnSeverity mirrors --fail-on. Validated by parseFailOn before the
+// engine runs; bogus values short-circuit to a USAGE envelope at exit 2.
+var failOnSeverity string
+
+// finalReport / finalThreshold / finalNeverFail communicate the audit
+// outcome from auditCmd.RunE up to Execute() so the report-aware exit
+// path can call exit.MapFromReport without coupling Execute() to Cobra
+// internals. RunE writes them only on the clean rendering path; the
+// Interrupted path leaves them nil and errInterrupted owns exit 130.
+var (
+	finalReport    *report.Report
+	finalThreshold report.Severity
+	finalNeverFail bool
+)
+
 // errInterrupted is returned by audit's RunE after it has already written
 // a partial report to stdout in response to SIGINT/SIGTERM. Execute()
 // recognises this sentinel and exits 130 without re-rendering.
 var errInterrupted = errors.New("audit interrupted")
+
+// parseFailOn validates the --fail-on value and returns the corresponding
+// report.Severity (or isNever=true for "never"). Bogus input becomes a
+// USAGE-coded *auditError so Execute() renders the documented envelope at
+// exit 2 instead of letting MapFromReport silently treat unknown ranks
+// as zero (footgun called out in the slice research).
+func parseFailOn(s string) (report.Severity, bool, *auditError) {
+	switch s {
+	case "low":
+		return report.SeverityLow, false, nil
+	case "medium":
+		return report.SeverityMedium, false, nil
+	case "high":
+		return report.SeverityHigh, false, nil
+	case "critical":
+		return report.SeverityCritical, false, nil
+	case "never":
+		return "", true, nil
+	}
+	return "", false, newAuditError(
+		report.CodeUsage,
+		"invalid --fail-on value: "+s,
+		"allowed values: low, medium, high, critical, never",
+		"",
+		map[string]any{"flag": "fail-on", "value": s, "allowed": []string{"low", "medium", "high", "critical", "never"}},
+		exit.Usage,
+	)
+}
 
 var auditCmd = &cobra.Command{
 	Use:   "audit <target>",
@@ -65,6 +108,11 @@ var auditCmd = &cobra.Command{
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := args[0]
+
+		threshold, neverFail, ferr := parseFailOn(failOnSeverity)
+		if ferr != nil {
+			return ferr
+		}
 
 		resolved, err := exec.LookPath(target)
 		if err != nil {
@@ -119,7 +167,13 @@ var auditCmd = &cobra.Command{
 			return errInterrupted
 		}
 
-		return renderReport(cmd.OutOrStdout(), r, opts, outputFormat)
+		if rerr := renderReport(cmd.OutOrStdout(), r, opts, outputFormat); rerr != nil {
+			return rerr
+		}
+		finalReport = r
+		finalThreshold = threshold
+		finalNeverFail = neverFail
+		return nil
 	},
 }
 
@@ -129,6 +183,7 @@ func init() {
 	auditCmd.Flags().StringVar(&descriptorPath, "descriptor", "", "path to afcli.yaml descriptor (skip/relax + S05 probe authorization)")
 	auditCmd.Flags().BoolVar(&probeEnabled, "probe", false, "invoke descriptor.commands.safe[] argv (default off; default-off path is byte-identical to S04)")
 	auditCmd.Flags().DurationVar(&probeTimeout, "probe-timeout", 5*time.Second, "per-probe timeout (default 5s; affects --help, --afcli-bogus-flag, and behavioral probes)")
+	auditCmd.Flags().StringVar(&failOnSeverity, "fail-on", "high", "severity threshold for exit 1: low|medium|high|critical|never")
 }
 
 // markUnfinishedAsSkipped finalizes a partial report after signal-driven

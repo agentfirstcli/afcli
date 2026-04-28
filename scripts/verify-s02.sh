@@ -169,7 +169,7 @@ if assert_exit help-schema-audit 0; then
 fi
 
 # ---- Case 6: audit /bin/echo carries embedded manifest_version (no v0-placeholder regression) ----
-run_case audit-manifest-version-live audit /bin/echo --output json
+run_case audit-manifest-version-live audit /bin/echo --output json --fail-on never
 if assert_exit audit-manifest-version-live 0; then
     assert_valid_json_stdout audit-manifest-version-live && \
     assert_contains     audit-manifest-version-live stdout '"manifest_version": "0.0.1"' && \

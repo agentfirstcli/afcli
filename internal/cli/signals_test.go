@@ -190,10 +190,12 @@ func TestSignalSIGTERMAlsoExits130(t *testing.T) {
 // TestSignalCleanRunStillExitsZero guards against the signal handler
 // inadvertently cancelling fast clean runs. With --debug-sleep unset
 // (default 0), the audit completes immediately and must exit 0.
+// --fail-on=never neutralises the threshold gate so the test isolates
+// the signal-path contract from any fail-finding the engine emits.
 func TestSignalCleanRunStillExitsZero(t *testing.T) {
 	bin := buildAfcli(t)
 
-	cmd := exec.Command(bin, "audit", "/bin/echo", "--output", "json")
+	cmd := exec.Command(bin, "audit", "/bin/echo", "--output", "json", "--fail-on", "never")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
