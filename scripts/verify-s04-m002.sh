@@ -46,10 +46,18 @@ GOLDEN_PATH="$REPO_ROOT/testdata/golden-self-audit.json"
 TMPDIR_S04M2="$(mktemp -d)"
 GOLDEN_BACKUP="$TMPDIR_S04M2/golden-self-audit.json.orig"
 GOLDEN_PATCHED=0
+# Regime C symlinks $REPO_ROOT/afcli -> $BIN so verify-s07.sh's literal
+# `audit ./afcli` cases (1/5/6) resolve to the installed binary. The flag
+# guards cleanup from removing a regular ./afcli a developer left behind.
+AFCLI_SYMLINK="$REPO_ROOT/afcli"
+AFCLI_SYMLINK_CREATED=0
 
 cleanup() {
     if (( GOLDEN_PATCHED )) && [[ -f "$GOLDEN_BACKUP" ]]; then
         cp "$GOLDEN_BACKUP" "$GOLDEN_PATH"
+    fi
+    if (( AFCLI_SYMLINK_CREATED )) && [[ -L "$AFCLI_SYMLINK" ]]; then
+        rm -f "$AFCLI_SYMLINK"
     fi
     rm -rf "$TMPDIR_S04M2"
 }
@@ -361,13 +369,27 @@ if [[ -n "${BIN:-}" ]]; then
                 "$GOLDEN_PATH"
             rm -f "${GOLDEN_PATH}.bak"
 
-            if BIN="$BIN" bash "$REPO_ROOT/scripts/verify-s07.sh" \
-                    >"$TMPDIR_S04M2/verify-s07.out" 2>"$TMPDIR_S04M2/verify-s07.err"; then
-                pass m001-contract-still-holds-against-installed-binary
+            # verify-s07.sh cases 1/5/6 audit the literal `./afcli`, and its
+            # build step is gated on BIN being unset. With BIN provided we
+            # need ./afcli to resolve to the installed binary, otherwise
+            # those cases hit TARGET_NOT_FOUND. Refuse to clobber a
+            # pre-existing ./afcli — leave that to the developer to clear.
+            if [[ -e "$AFCLI_SYMLINK" || -L "$AFCLI_SYMLINK" ]]; then
+                fail m001-contract-still-holds-against-installed-binary \
+                     "$AFCLI_SYMLINK already exists; remove or rename it before re-running Regime C"
+            elif ! ln -s "$BIN" "$AFCLI_SYMLINK"; then
+                fail m001-contract-still-holds-against-installed-binary \
+                     "could not symlink $AFCLI_SYMLINK -> $BIN"
             else
-                fail m001-contract-still-holds-against-installed-binary "verify-s07.sh failed against $BIN; output:
+                AFCLI_SYMLINK_CREATED=1
+                if BIN="$BIN" bash "$REPO_ROOT/scripts/verify-s07.sh" \
+                        >"$TMPDIR_S04M2/verify-s07.out" 2>"$TMPDIR_S04M2/verify-s07.err"; then
+                    pass m001-contract-still-holds-against-installed-binary
+                else
+                    fail m001-contract-still-holds-against-installed-binary "verify-s07.sh failed against $BIN; output:
 $(cat "$TMPDIR_S04M2/verify-s07.out")
 $(cat "$TMPDIR_S04M2/verify-s07.err")"
+                fi
             fi
         fi
     fi
