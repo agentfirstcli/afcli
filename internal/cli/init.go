@@ -71,7 +71,12 @@ var initCmd = &cobra.Command{
 		"target name, format_version, and explicit-empty commands/env/skip/\n" +
 		"relax sections. Refuses to overwrite an existing file unless --force\n" +
 		"is set; uses the INIT_FILE_EXISTS error code on refusal.",
-	Args:          cobra.ExactArgs(1),
+	Args: func(cmd *cobra.Command, args []string) error {
+		if helpSchema || versionFlag {
+			return nil
+		}
+		return cobra.ExactArgs(1)(cmd, args)
+	},
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

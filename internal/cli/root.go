@@ -107,9 +107,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&outputFormat, "output", "json", "output format: json, text, or markdown")
 	rootCmd.PersistentFlags().BoolVar(&deterministic, "deterministic", false, "produce deterministic output (zero timestamps/durations, relative paths, stable sort)")
 	rootCmd.PersistentFlags().BoolVar(&helpSchema, "help-schema", false, "emit machine-parseable help schema as JSON and exit")
+	rootCmd.PersistentFlags().BoolVar(&versionFlag, "version", false, "print version information and exit")
 	rootCmd.AddCommand(auditCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(manifestCmd)
+	rootCmd.AddCommand(versionCmd)
 }
 
 // Execute runs the root Cobra command and translates its outcome into a
@@ -139,6 +141,12 @@ func Execute() {
 	// document to stdout; the sentinel here just guarantees a clean 0 exit
 	// without invoking any subcommand's RunE.
 	if errors.Is(err, errHelpSchema) {
+		os.Exit(exit.OK)
+	}
+
+	// --version short-circuit: PersistentPreRunE wrote the version line
+	// before any subcommand RunE could run. Same shape as errHelpSchema.
+	if errors.Is(err, errVersion) {
 		os.Exit(exit.OK)
 	}
 

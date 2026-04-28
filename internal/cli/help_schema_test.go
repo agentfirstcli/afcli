@@ -33,7 +33,7 @@ func TestBuildHelpSchemaRoot(t *testing.T) {
 	for _, c := range hs.Command.Subcommands {
 		names = append(names, c.Name)
 	}
-	want := []string{"audit", "init", "manifest"}
+	want := []string{"audit", "init", "manifest", "version"}
 	if !reflect.DeepEqual(names, want) {
 		t.Errorf("root subcommands: want %v, got %v", want, names)
 	}

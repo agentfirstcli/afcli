@@ -94,7 +94,7 @@ var auditCmd = &cobra.Command{
 	// ValidateArgs before PersistentPreRunE — so we have to skip the
 	// arg-count check ourselves when the user is asking for the schema.
 	Args: func(cmd *cobra.Command, args []string) error {
-		if helpSchema {
+		if helpSchema || versionFlag {
 			return nil
 		}
 		return cobra.ExactArgs(1)(cmd, args)

@@ -53,11 +53,11 @@
       "principle_id": "P13",
       "title": "Stable Flags",
       "category": "Contracts \u0026 Stability",
-      "status": "review",
+      "status": "pass",
       "kind": "automated",
       "severity": "medium",
-      "evidence": "--help advertises no --version flag",
-      "recommendation": "add --version output so callers can pin to known flag surfaces and detect drift",
+      "evidence": "--version",
+      "recommendation": "keep advertising --version so callers can detect version drift",
       "hint": "https://agentfirstcli.github.io/principles/stable-flags/"
     },
     {
