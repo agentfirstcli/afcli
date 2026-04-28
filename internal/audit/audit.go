@@ -3,6 +3,7 @@ package audit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -100,6 +101,13 @@ func (e *Engine) Run(ctx context.Context, target string, r *report.Report, d *de
 	}
 
 	for _, p := range manifest.Embedded.Principles {
+		// Cancellation invariant (R012): break the principle loop the
+		// moment ctx is done so SIGINT mid-audit does not run further
+		// checks. The CLI's finalizer fills the unfinished tail via
+		// AppendUnfinishedAsSkipped so r.Findings still totals 16.
+		if ctx.Err() != nil {
+			break
+		}
 		env := &CheckEnv{Target: target, Principle: p, Help: help, Bogus: bogus, Behavioral: behavioral}
 		if descriptor.ShouldSkip(d, p.PrincipleID()) {
 			f := baseFinding(env)
@@ -117,6 +125,111 @@ func (e *Engine) Run(ctx context.Context, target string, r *report.Report, d *de
 		f := e.safeRun(ctx, env, p, check)
 		descriptor.Apply(d, &f)
 		r.Findings = append(r.Findings, f)
+	}
+
+	// Probe-evidence aggregator: only runs when the principle loop
+	// completed without cancellation. Concentrates probe timeout / denial
+	// signal into the existing P3 finding so an agent reading the JSON
+	// report sees one review entry per failed probe instead of N
+	// scattered envelopes (R008 isolation: 16 findings, never more).
+	// Skip-by-policy on P3 wins — the descriptor's authority is preserved.
+	if ctx.Err() == nil {
+		decorateP3WithProbeEvidence(r, behavioral)
+	}
+}
+
+// decorateP3WithProbeEvidence walks behavioral captures and, if any have
+// non-nil Capture.Err, replaces the P3 finding with a review entry whose
+// evidence concatenates one line per failing capture. The replacement is
+// suppressed when the existing P3 finding is already StatusSkip — a
+// descriptor skip overrides aggregator decoration. Severity is preserved
+// via baseFinding so the manifest table value survives.
+func decorateP3WithProbeEvidence(r *report.Report, behavioral []BehavioralCapture) {
+	if len(behavioral) == 0 {
+		return
+	}
+	var failing []BehavioralCapture
+	for _, bc := range behavioral {
+		if bc.Capture != nil && bc.Capture.Err != nil {
+			failing = append(failing, bc)
+		}
+	}
+	if len(failing) == 0 {
+		return
+	}
+
+	idx := -1
+	for i := range r.Findings {
+		if r.Findings[i].PrincipleID == "P3" {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return
+	}
+	if r.Findings[idx].Status == report.StatusSkip {
+		return
+	}
+
+	var p3 manifest.Principle
+	for _, p := range manifest.Embedded.Principles {
+		if p.PrincipleID() == "P3" {
+			p3 = p
+			break
+		}
+	}
+	env := &CheckEnv{Target: r.Target, Principle: p3}
+	f := baseFinding(env)
+	f.Status = report.StatusReview
+	f.Kind = report.KindRequiresReview
+
+	var lines []string
+	for _, bc := range failing {
+		var ae *AuthError
+		switch {
+		case IsProbeTimeout(bc.Capture.Err):
+			lines = append(lines, fmt.Sprintf("probe timeout: %s exceeded %dms", bc.Cmd, bc.Capture.Duration.Milliseconds()))
+		case errors.As(bc.Capture.Err, &ae):
+			lines = append(lines, fmt.Sprintf("probe denied: %s: %s", bc.Cmd, ae.Reason))
+		default:
+			lines = append(lines, fmt.Sprintf("probe failed: %s: %v", bc.Cmd, bc.Capture.Err))
+		}
+	}
+	f.Evidence = truncateEvidence(strings.Join(lines, "\n"))
+	f.Recommendation = "investigate the probe outcome and either remove the entry from commands.safe or fix the target's behavior"
+
+	r.Findings[idx] = f
+}
+
+// AppendUnfinishedAsSkipped fills r.Findings with synthetic skip findings
+// for any principle that did not produce a finding before cancellation.
+// Preserves the manifest's declaration order — sorting happens at render
+// time (MEM007). Idempotent: principles already present in r.Findings are
+// skipped. After this call the report carries exactly len(manifest
+// principles) findings, satisfying the "16 findings, always" invariant
+// even when SIGINT hit mid-loop.
+func AppendUnfinishedAsSkipped(r *report.Report) {
+	seen := make(map[string]bool, len(r.Findings))
+	for _, f := range r.Findings {
+		seen[f.PrincipleID] = true
+	}
+	for _, p := range manifest.Embedded.Principles {
+		id := p.PrincipleID()
+		if seen[id] {
+			continue
+		}
+		r.Findings = append(r.Findings, report.Finding{
+			PrincipleID:    id,
+			Title:          p.Title,
+			Category:       p.Category,
+			Status:         report.StatusSkip,
+			Kind:           report.KindRequiresReview,
+			Severity:       severityFor(id),
+			Evidence:       "audit interrupted before this principle ran",
+			Recommendation: "re-run audit",
+			Hint:           p.URL,
+		})
 	}
 }
 

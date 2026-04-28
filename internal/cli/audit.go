@@ -131,10 +131,14 @@ func init() {
 	auditCmd.Flags().DurationVar(&probeTimeout, "probe-timeout", 5*time.Second, "per-probe timeout (default 5s; affects --help, --afcli-bogus-flag, and behavioral probes)")
 }
 
-// markUnfinishedAsSkipped flips any non-terminal Finding to Status=skip
-// after a signal-driven cancellation. S01 ships zero principles, so this
-// is a no-op today — plumbed now so S05's probe layer can populate
-// in-progress findings and rely on the same finalization path.
+// markUnfinishedAsSkipped finalizes a partial report after signal-driven
+// cancellation. Two-step process: (1) flip any non-terminal Finding to
+// Status=skip (preserves pre-S05 callers that may still emit
+// in-progress sentinel statuses); (2) delegate to
+// audit.AppendUnfinishedAsSkipped so any principle missing from
+// r.Findings entirely (the engine broke its loop early on ctx.Err()) is
+// synthesized in manifest order. Post-call invariant: len(r.Findings)
+// equals the manifest principle count (16 today), every status is terminal.
 func markUnfinishedAsSkipped(r *report.Report) {
 	for i := range r.Findings {
 		switch r.Findings[i].Status {
@@ -144,6 +148,7 @@ func markUnfinishedAsSkipped(r *report.Report) {
 			r.Findings[i].Status = report.StatusSkip
 		}
 	}
+	audit.AppendUnfinishedAsSkipped(r)
 }
 
 // classifyResolveError distinguishes a missing target from an existing
