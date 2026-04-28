@@ -8,12 +8,22 @@ JSON is the default output. Agents and CI are first-class consumers; `--output t
 
 ## Install
 
-Build from source — Go 1.23+, no CGO:
+### Homebrew (macOS)
 
 ```sh
-git clone https://github.com/agentfirstcli/afcli
-cd afcli
-CGO_ENABLED=0 go build -o ./afcli ./cmd/afcli
+brew install agentfirstcli/afcli/afcli
+```
+
+### Docker (Linux, CI)
+
+```sh
+docker run --rm agentfirstcli/afcli:0.1.0 audit /target
+```
+
+### From source (Go 1.23+)
+
+```sh
+go install github.com/agentfirstcli/afcli/cmd/afcli@latest
 ```
 
 ## Quickstart
