@@ -8,6 +8,7 @@ import (
 
 	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
+	"github.com/agentfirstcli/afcli/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -61,7 +62,7 @@ type ExitCode struct {
 // surface.
 func BuildHelpSchema(cmd *cobra.Command) *HelpSchema {
 	return &HelpSchema{
-		AfcliVersion:    AfcliVersion,
+		AfcliVersion:    version.Version,
 		ManifestVersion: manifest.Embedded.Version,
 		SchemaVersion:   "1",
 		Command:         walkCommand(cmd),

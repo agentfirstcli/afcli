@@ -12,14 +12,9 @@ import (
 	"github.com/agentfirstcli/afcli/internal/exit"
 	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
+	"github.com/agentfirstcli/afcli/internal/version"
 	"github.com/spf13/cobra"
 )
-
-// AfcliVersion is the binary's reported version. Hard-coded for S01;
-// populated from build flags in a later milestone. Exported so the
-// help-schema renderer (and any future introspection surface) can
-// reference it without inviting a circular import.
-const AfcliVersion = "0.0.0-dev"
 
 // debugSleep simulates a slow audit so the signal-interrupt integration
 // test can SIGINT a running invocation. Hidden — not part of the public
@@ -134,7 +129,7 @@ var auditCmd = &cobra.Command{
 		started := time.Now().UTC()
 		r := &report.Report{
 			ManifestVersion: manifest.Embedded.Version,
-			AfcliVersion:    AfcliVersion,
+			AfcliVersion:    version.Version,
 			Target:          resolved,
 			StartedAt:       started.Format(time.RFC3339Nano),
 			DurationMs:      0,

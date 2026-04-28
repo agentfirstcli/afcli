@@ -9,6 +9,7 @@ import (
 	"github.com/agentfirstcli/afcli/internal/exit"
 	"github.com/agentfirstcli/afcli/internal/manifest"
 	"github.com/agentfirstcli/afcli/internal/report"
+	"github.com/agentfirstcli/afcli/internal/version"
 )
 
 // auditError is returned by command handlers when the CLI cannot complete
@@ -65,7 +66,7 @@ func renderReport(w io.Writer, r *report.Report, opts report.RenderOptions, form
 func renderEnvelope(w io.Writer, env *report.ErrorEnvelope, target string, opts report.RenderOptions, format string) error {
 	r := &report.Report{
 		ManifestVersion: manifest.Embedded.Version,
-		AfcliVersion:    AfcliVersion,
+		AfcliVersion:    version.Version,
 		Target:          target,
 		StartedAt:       startedAt(opts),
 		DurationMs:      0,

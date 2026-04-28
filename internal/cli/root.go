@@ -9,6 +9,7 @@ import (
 
 	"github.com/agentfirstcli/afcli/internal/exit"
 	"github.com/agentfirstcli/afcli/internal/report"
+	"github.com/agentfirstcli/afcli/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,7 @@ var (
 	outputFormat  string
 	deterministic bool
 	helpSchema    bool
+	versionFlag   bool
 )
 
 // ctxKey is unexported so callers cannot collide with cli's context values.
