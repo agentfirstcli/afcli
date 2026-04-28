@@ -82,6 +82,30 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
 
+# S03/T02: Manifest list assembly. Push-only — snapshot runs do not produce a
+# local manifest artefact, so this block has no observable effect until S04
+# RC verification runs `docker manifest inspect` against Docker Hub.
+#
+# The `:latest` entry uses an intentional dual guard for RC suppression:
+#   1. Template empty-string — `'{{ if not .Prerelease }}…{{ end }}'` evaluates
+#      to `""` for prerelease tags (e.g. v0.1.1-rc.1); goreleaser then produces
+#      no manifest entry for that name.
+#   2. `skip_push: auto` — even if the template produced a name, auto-skip
+#      suppresses the push for prereleases.
+# Either guard alone suffices; both together makes the RC-suppression intent
+# structurally obvious to a future reader. If you see `:latest` against an RC
+# tag in Docker Hub, both guards have failed and goreleaser config is broken.
+docker_manifests:
+  - name_template: "agentfirstcli/afcli:{{ .Version }}"
+    image_templates:
+      - "agentfirstcli/afcli:{{ .Version }}-amd64"
+      - "agentfirstcli/afcli:{{ .Version }}-arm64"
+  - name_template: '{{ if not .Prerelease }}agentfirstcli/afcli:latest{{ end }}'
+    skip_push: auto
+    image_templates:
+      - "agentfirstcli/afcli:{{ .Version }}-amd64"
+      - "agentfirstcli/afcli:{{ .Version }}-arm64"
+
 release:
   disable: true
 
