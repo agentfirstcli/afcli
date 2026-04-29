@@ -21,8 +21,12 @@ type Descriptor struct {
 // Commands carries the descriptor's allowlist for probe execution.
 // S05 will read Safe; Destructive is reserved for future explicit-opt-in
 // probes and is parsed today only so unknown-key strict-mode does not
-// reject descriptors that declare it.
+// reject descriptors that declare it. Nondeterministic is the structural
+// opt-out from P3 probe-rerun: every entry MUST also appear in Safe
+// (Validate enforces this) — you cannot opt out of a probe you have not
+// authorized.
 type Commands struct {
-	Safe        []string `yaml:"safe,omitempty"`
-	Destructive []string `yaml:"destructive,omitempty"`
+	Safe             []string `yaml:"safe,omitempty"`
+	Destructive      []string `yaml:"destructive,omitempty"`
+	Nondeterministic []string `yaml:"nondeterministic,omitempty"`
 }

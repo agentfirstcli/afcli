@@ -187,6 +187,67 @@ func TestShouldSkipAndRelaxCapAreNilSafe(t *testing.T) {
 	}
 }
 
+func TestLoadParsesCommandsNondeterministic(t *testing.T) {
+	body := `format_version: "1"
+commands:
+  safe:
+    - "--top"
+    - "--version"
+  nondeterministic:
+    - "--top"
+`
+	d, typed := loadTyped(t, body)
+	if typed != nil {
+		t.Fatalf("expected success, got %v", typed)
+	}
+	got := d.Commands.Nondeterministic
+	if len(got) != 1 || got[0] != "--top" {
+		t.Errorf("Commands.Nondeterministic = %v, want [--top]", got)
+	}
+}
+
+func TestLoadRejectsNondeterministicNotInSafe(t *testing.T) {
+	body := `format_version: "1"
+commands:
+  safe:
+    - "--version"
+  nondeterministic:
+    - "--top"
+`
+	_, typed := loadTyped(t, body)
+	if typed == nil {
+		t.Fatal("expected error for nondeterministic entry not in safe")
+	}
+	if typed.Code != CodeDescriptorInvalid {
+		t.Errorf("Code = %q, want DESCRIPTOR_INVALID", typed.Code)
+	}
+	if got := typed.Details["key"]; got != "commands.nondeterministic[0]" {
+		t.Errorf("Details.key = %v, want commands.nondeterministic[0]", got)
+	}
+	if got := typed.Details["value"]; got != "--top" {
+		t.Errorf("Details.value = %v, want --top", got)
+	}
+}
+
+func TestLoadRejectsNondeterministicTypeMismatch(t *testing.T) {
+	body := `format_version: "1"
+commands:
+  safe:
+    - "--top"
+  nondeterministic: "--top"
+`
+	_, typed := loadTyped(t, body)
+	if typed == nil {
+		t.Fatal("expected type-mismatch error")
+	}
+	if typed.Code != CodeDescriptorInvalid {
+		t.Errorf("Code = %q, want DESCRIPTOR_INVALID", typed.Code)
+	}
+	if line, ok := typed.Details["line"].(int); !ok || line < 1 {
+		t.Errorf("Details.line = %v, want positive int", typed.Details["line"])
+	}
+}
+
 func TestApplyCapsAndPreserves(t *testing.T) {
 	d := &Descriptor{
 		FormatVersion:   "1",

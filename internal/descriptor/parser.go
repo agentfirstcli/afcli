@@ -233,6 +233,24 @@ func Validate(d *Descriptor) error {
 		}
 	}
 
+	safeSet := make(map[string]struct{}, len(d.Commands.Safe))
+	for _, entry := range d.Commands.Safe {
+		safeSet[entry] = struct{}{}
+	}
+	for i, entry := range d.Commands.Nondeterministic {
+		if _, ok := safeSet[entry]; !ok {
+			return &Error{
+				Code:    CodeDescriptorInvalid,
+				Message: fmt.Sprintf("commands.nondeterministic[%d] %q is not in commands.safe", i, entry),
+				Hint:    "every nondeterministic entry must also appear in commands.safe — you cannot opt out of a probe you have not authorized",
+				Details: map[string]any{
+					"key":   fmt.Sprintf("commands.nondeterministic[%d]", i),
+					"value": entry,
+				},
+			}
+		}
+	}
+
 	return nil
 }
 
