@@ -68,9 +68,17 @@ func startedAt(opts report.RenderOptions) string {
 }
 
 var rootCmd = &cobra.Command{
-	Use:           "afcli",
-	Short:         "Agent-first CLI auditor",
-	Long:          "afcli audits binaries and projects against agent-first-cli design principles.",
+	Use:   "afcli",
+	Short: "Agent-first CLI auditor",
+	Long: `afcli audits binaries and projects against agent-first-cli design principles.
+
+EXIT STATUS
+  0   OK — audit ran cleanly and no finding met the fail-on threshold
+  1   findings at or above the fail-on threshold (default: high)
+  2   usage error — unknown flag, bad arg count, or malformed descriptor
+  3   could not audit — target missing, not executable, or probe denied
+  4   internal error — unexpected failure inside afcli
+  130 interrupted (SIGINT/SIGTERM); a partial report is written to stdout`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

@@ -18,5 +18,11 @@ commands:
     - "inspect"
   nondeterministic: []
 env: {}
-skip_principles: []
+# P16 (destructive-operation warnings) does not apply: afcli is a
+# read-only auditor — its only writes are user-requested artefacts
+# (`init` writes a descriptor, `audit --badge` writes the requested
+# output dir). No flag bypasses confirmation, no operation is
+# irreversible, no documented danger keywords belong in --help.
+skip_principles:
+  - "P16"
 relax_principles: {}

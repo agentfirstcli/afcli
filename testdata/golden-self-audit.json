@@ -141,11 +141,11 @@
       "principle_id": "P6",
       "title": "Semantic Exit Codes",
       "category": "Errors \u0026 Exit",
-      "status": "review",
+      "status": "pass",
       "kind": "automated",
       "severity": "high",
-      "evidence": "--help does not document exit-code semantics",
-      "recommendation": "document exit codes in --help under an EXIT STATUS section",
+      "evidence": "EXIT STATUS",
+      "recommendation": "keep documenting exit-code semantics in --help",
       "hint": "https://agentfirstcli.github.io/principles/semantic-exit-codes/"
     },
     {
