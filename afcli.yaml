@@ -1,8 +1,21 @@
 format_version: "1"
+target: "afcli"
 commands:
   safe:
     - "--version"
-  destructive: []
+    - "--help"
+    - "--help-schema"
+    - "version"
+    - "help"
+    - "manifest list"
+    - "manifest --help"
+    - "audit --help"
+    - "inspect --help"
+    - "init --help"
+    - "completion --help"
+  destructive:
+    - "init"
+    - "inspect"
   nondeterministic: []
 env: {}
 skip_principles: []
