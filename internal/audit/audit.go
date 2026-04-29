@@ -171,6 +171,7 @@ func (e *Engine) Run(ctx context.Context, target string, r *report.Report, d *de
 	// Skip-by-policy on P3 wins — the descriptor's authority is preserved.
 	if ctx.Err() == nil {
 		decorateP3WithProbeEvidence(r, behavioral)
+		evaluateP3FromReruns(r, behavioral)
 	}
 }
 
@@ -235,6 +236,172 @@ func decorateP3WithProbeEvidence(r *report.Report, behavioral []BehavioralCaptur
 	f.Evidence = truncateEvidence(strings.Join(lines, "\n"))
 	f.Recommendation = "investigate the probe outcome and either remove the entry from commands.safe or fix the target's behavior"
 
+	r.Findings[idx] = f
+}
+
+// evaluateP3FromReruns promotes the P3 finding from kind:requires-review
+// to kind:automated when every authorized behavioral capture proves
+// determinism via a paired Rerun. Precedence (must hold for the slice
+// contract): descriptor skip > failure aggregator > this promotion >
+// stub review. The function no-ops on every precedence-loss path so the
+// earlier verdict survives untouched.
+//
+// Verdict synthesis walks `behavioral` once and classifies each entry
+// as equal, allowlist-only diff, structural diff, or opt-out (Rerun
+// suppressed via Commands.Nondeterministic). A single structural diff
+// flips the whole P3 finding to automated/fail; otherwise any opt-out
+// or allowlist-only diff downgrades to requires-review (with the
+// allowlist-diff evidence preferred over opt-out when both appear,
+// because a real diff is more diagnostic). All-equal yields
+// automated/pass with a deterministic evidence string keyed on the
+// rerun count and command list.
+//
+// Rerun-only failures (Rerun.Err != nil with Capture.Err == nil) are
+// the documented gap: the failure aggregator does not catch them
+// (it only walks Capture.Err) and this aggregator returns early so the
+// checkP3 stub review survives. See T04 plan §Failure Modes.
+func evaluateP3FromReruns(r *report.Report, behavioral []BehavioralCapture) {
+	if len(behavioral) == 0 {
+		return
+	}
+	idx := -1
+	for i := range r.Findings {
+		if r.Findings[i].PrincipleID == "P3" {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return
+	}
+	if r.Findings[idx].Status == report.StatusSkip {
+		return
+	}
+	ev := r.Findings[idx].Evidence
+	if strings.HasPrefix(ev, "probe timeout:") ||
+		strings.HasPrefix(ev, "probe denied:") ||
+		strings.HasPrefix(ev, "probe failed:") {
+		return
+	}
+
+	// Defensive: failure aggregator should already own any Capture.Err
+	// path. If we still see one here, decline the promotion so the
+	// (possibly stub) finding survives.
+	for _, bc := range behavioral {
+		if bc.Capture == nil || bc.Capture.Err != nil {
+			return
+		}
+	}
+
+	type entryKind int
+	const (
+		kEqual entryKind = iota
+		kAllowlistDiff
+		kStructuralDiff
+		kOptOut
+	)
+	type entry struct {
+		kind     entryKind
+		cmd      string
+		evidence string // formatted diff line, when applicable
+	}
+
+	entries := make([]entry, 0, len(behavioral))
+	cmds := make([]string, 0, len(behavioral))
+	for _, bc := range behavioral {
+		cmds = append(cmds, bc.Cmd)
+		if bc.Rerun == nil {
+			entries = append(entries, entry{kind: kOptOut, cmd: bc.Cmd})
+			continue
+		}
+		if bc.Rerun.Err != nil {
+			// Rerun-only failure: stub review must survive — there is
+			// no aggregator path that owns this case today.
+			return
+		}
+		_, diff, structural := firstStructuralDiff(bc.Capture.Stdout, bc.Rerun.Stdout)
+		switch {
+		case structural:
+			entries = append(entries, entry{kind: kStructuralDiff, cmd: bc.Cmd, evidence: diff})
+		case maskNonCanonical(bc.Capture.Stdout) == maskNonCanonical(bc.Rerun.Stdout) &&
+			bc.Capture.Stdout != bc.Rerun.Stdout:
+			// Masked outputs are equal but raw outputs differ — the
+			// only difference is allowlisted noise. Reconstruct the
+			// per-line evidence from a *masked-vs-masked* diff would
+			// be empty, so emit a one-line marker that names the
+			// command and shows the masked form.
+			entries = append(entries, entry{
+				kind:     kAllowlistDiff,
+				cmd:      bc.Cmd,
+				evidence: truncateEvidenceUTF8(fmt.Sprintf("masked at %s: %s", bc.Cmd, firstNonEmptyLine(maskNonCanonical(bc.Capture.Stdout)))),
+			})
+		default:
+			entries = append(entries, entry{kind: kEqual, cmd: bc.Cmd})
+		}
+	}
+
+	var p3 manifest.Principle
+	for _, p := range manifest.Embedded.Principles {
+		if p.PrincipleID() == "P3" {
+			p3 = p
+			break
+		}
+	}
+	env := &CheckEnv{Target: r.Target, Principle: p3}
+
+	// Verdict precedence: structuralDiff > (opt-out OR allowlist-only) > equal.
+	for _, e := range entries {
+		if e.kind == kStructuralDiff {
+			f := baseFinding(env)
+			f.Status = report.StatusFail
+			f.Kind = report.KindAutomated
+			f.Evidence = truncateEvidenceUTF8(e.evidence)
+			f.Recommendation = "if this command intentionally re-orders output, add it to commands.nondeterministic"
+			r.Findings[idx] = f
+			return
+		}
+	}
+
+	var (
+		hasAllowlist bool
+		allowlistEv  string
+		hasOptOut    bool
+		optOutCmd    string
+	)
+	for _, e := range entries {
+		switch e.kind {
+		case kAllowlistDiff:
+			if !hasAllowlist {
+				hasAllowlist = true
+				allowlistEv = e.evidence
+			}
+		case kOptOut:
+			if !hasOptOut {
+				hasOptOut = true
+				optOutCmd = e.cmd
+			}
+		}
+	}
+	if hasAllowlist || hasOptOut {
+		f := baseFinding(env)
+		f.Status = report.StatusReview
+		f.Kind = report.KindRequiresReview
+		if hasAllowlist {
+			f.Evidence = truncateEvidenceUTF8("masked diff (allowlisted variation): " + allowlistEv)
+		} else {
+			f.Evidence = truncateEvidenceUTF8("opt-out: " + optOutCmd)
+		}
+		f.Recommendation = "review the masked diff and either add the command to commands.nondeterministic if non-determinism is intentional, or fix the target's output"
+		r.Findings[idx] = f
+		return
+	}
+
+	// All entries equal — deterministic on every authorized command.
+	f := baseFinding(env)
+	f.Status = report.StatusPass
+	f.Kind = report.KindAutomated
+	f.Evidence = truncateEvidenceUTF8(fmt.Sprintf("deterministic: %d/%d reruns byte-identical (%s)", len(behavioral), len(behavioral), strings.Join(cmds, ", ")))
+	f.Recommendation = "keep output ordering stable across runs"
 	r.Findings[idx] = f
 }
 
