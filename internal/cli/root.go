@@ -110,6 +110,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&versionFlag, "version", false, "print version information and exit")
 	rootCmd.AddCommand(auditCmd)
 	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(inspectCmd)
 	rootCmd.AddCommand(manifestCmd)
 	rootCmd.AddCommand(versionCmd)
 }

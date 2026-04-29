@@ -179,7 +179,7 @@ func TestRunProbeRespectsContextCancel(t *testing.T) {
 	}
 
 	start := time.Now()
-	c := runProbe(context.Background(), "/bin/sleep", []string{"5"}, 100*time.Millisecond, nil)
+	c := RunProbe(context.Background(), "/bin/sleep", []string{"5"}, 100*time.Millisecond, nil)
 	dur := time.Since(start)
 
 	if c.Err == nil && c.ExitCode == 0 {

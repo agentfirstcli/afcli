@@ -80,7 +80,7 @@ func DefaultEngine() *Engine {
 			"P16": checkP16,
 		},
 		ProbeTimeout: defaultProbeTimeout,
-		Probe:        runProbe,
+		Probe:        RunProbe,
 	}
 }
 

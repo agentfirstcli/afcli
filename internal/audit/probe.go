@@ -51,7 +51,7 @@ func IsProbeCancelled(err error) bool {
 	return errors.Is(err, errProbeCancelled)
 }
 
-// runProbe invokes target with args under a per-probe timeout. Env is
+// RunProbe invokes target with args under a per-probe timeout. Env is
 // intentionally minimal and locale-stable so evidence strings are
 // byte-stable across machines and CI runs. ctx threading preserves the
 // SIGINT cancellation contract from S01. extraEnv (typically
@@ -59,8 +59,11 @@ func IsProbeCancelled(err error) bool {
 // exec uses last-wins semantics for repeated keys in cmd.Env, so
 // descriptor entries override LC_ALL/LANG/PATH/GIT_PAGER for that probe
 // only. Iteration is sorted by key so two runs with identical inputs
-// produce byte-identical subprocess environments (determinism).
-func runProbe(ctx context.Context, target string, args []string, timeout time.Duration, extraEnv map[string]string) *Capture {
+// produce byte-identical subprocess environments (determinism). Exported
+// in S02/M003 so internal/cli can reuse the probe machinery (locale
+// pinning, deadline plumbing, capture envelope) for `afcli inspect`'s
+// recursive --help walker without duplicating it.
+func RunProbe(ctx context.Context, target string, args []string, timeout time.Duration, extraEnv map[string]string) *Capture {
 	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 

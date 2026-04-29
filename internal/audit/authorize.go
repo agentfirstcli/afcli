@@ -10,7 +10,7 @@ import (
 // BehavioralCapture is one entry in the descriptor-authorized probe pass.
 // Cmd is the original Commands.Safe[] entry verbatim; Argv is the
 // strings.Fields-split form passed to the subprocess; Capture carries
-// the runProbe result (or a synthesized *Capture with Err set to an
+// the RunProbe result (or a synthesized *Capture with Err set to an
 // *AuthError when authorizeProbe rejected the candidate).
 type BehavioralCapture struct {
 	Cmd     string
