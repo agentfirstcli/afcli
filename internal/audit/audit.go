@@ -98,6 +98,18 @@ func (e *Engine) Run(ctx context.Context, target string, r *report.Report, d *de
 
 	var behavioral []BehavioralCapture
 	if e.ProbeEnabled && d != nil {
+		// Build the nondeterministic opt-out set ONCE before the loop so
+		// the membership lookup is O(1) per safe entry. Keyed on the same
+		// strings.Join(argv, " ") shape as authorizeProbe so the opt-out
+		// matches the exact-argv key.
+		nondetSet := make(map[string]struct{}, len(d.Commands.Nondeterministic))
+		for _, entry := range d.Commands.Nondeterministic {
+			argv := strings.Fields(entry)
+			if len(argv) == 0 {
+				continue
+			}
+			nondetSet[strings.Join(argv, " ")] = struct{}{}
+		}
 		for _, entry := range d.Commands.Safe {
 			argv := strings.Fields(entry)
 			if len(argv) == 0 {
@@ -110,6 +122,16 @@ func (e *Engine) Run(ctx context.Context, target string, r *report.Report, d *de
 				continue
 			}
 			bc.Capture = e.Probe(ctx, target, argv, e.ProbeTimeout, d.Env)
+			// Rerun gate: skip on first-probe failure (the failure
+			// aggregator owns this case via bc.Capture.Err) and skip
+			// when the descriptor explicitly opted out via
+			// Commands.Nondeterministic. Authorization is reused — the
+			// argv was already authorized for the first call.
+			if bc.Capture != nil && bc.Capture.Err == nil {
+				if _, optedOut := nondetSet[strings.Join(argv, " ")]; !optedOut {
+					bc.Rerun = e.Probe(ctx, target, argv, e.ProbeTimeout, d.Env)
+				}
+			}
 			behavioral = append(behavioral, bc)
 		}
 	}

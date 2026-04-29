@@ -12,10 +12,15 @@ import (
 // strings.Fields-split form passed to the subprocess; Capture carries
 // the RunProbe result (or a synthesized *Capture with Err set to an
 // *AuthError when authorizeProbe rejected the candidate).
+// Rerun, when non-nil, is the paired second invocation used by the P3
+// promotion aggregator. Nil when the descriptor opted out via
+// Commands.Nondeterministic, when authorization failed, or when the
+// first probe errored.
 type BehavioralCapture struct {
 	Cmd     string
 	Argv    []string
 	Capture *Capture
+	Rerun   *Capture
 }
 
 // AuthError discriminates "the probe was structurally rejected before
