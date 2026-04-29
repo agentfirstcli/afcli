@@ -1,5 +1,7 @@
 # afcli
 
+<img src="docs/badge.svg" alt="agent-first conformance badge" />
+
 `afcli` audits a CLI against the [Agent-First CLI](https://agentfirstcli.github.io) manifest — 16 principles spanning output, errors & exit, behavior, contracts & stability, discoverability, and safety. It produces a structured report mapping each principle to `pass | fail | skip | review`, with severity, evidence, and a concrete recommendation.
 
 JSON is the default output. Agents and CI are first-class consumers; `--output text|markdown` renders the same data for humans.

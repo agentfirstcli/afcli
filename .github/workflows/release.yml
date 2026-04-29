@@ -44,3 +44,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: regenerate-badge
+        if: ${{ !contains(github.ref, '-rc.') }}
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: regenerate-badge-run
+        if: ${{ !contains(github.ref, '-rc.') }}
+        env:
+          AFCLI_DETERMINISTIC: "1"
+        run: |
+          go build -o /tmp/afcli ./cmd/afcli
+          /tmp/afcli audit /tmp/afcli --probe --descriptor afcli.yaml --badge --badge-out docs
+          if git diff --quiet docs/badge.svg docs/badge.json; then
+            echo "no badge change"
+            exit 0
+          fi
+          git config user.email "goreleaserbot@users.noreply.github.com"
+          git config user.name "goreleaserbot"
+          git add docs/badge.svg docs/badge.json
+          git commit -m "chore(badge): regenerate after ${GITHUB_REF_NAME}"
+          git push origin HEAD:main

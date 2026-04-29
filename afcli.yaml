@@ -1,0 +1,9 @@
+format_version: "1"
+commands:
+  safe:
+    - "--version"
+  destructive: []
+  nondeterministic: []
+env: {}
+skip_principles: []
+relax_principles: {}
