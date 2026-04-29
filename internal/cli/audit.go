@@ -2,9 +2,11 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/agentfirstcli/afcli/internal/audit"
@@ -42,6 +44,18 @@ var probeTimeout time.Duration
 // failOnSeverity mirrors --fail-on. Validated by parseFailOn before the
 // engine runs; bogus values short-circuit to a USAGE envelope at exit 2.
 var failOnSeverity string
+
+// badgeEnabled mirrors --badge. Default off keeps the audit byte-identical
+// to S03 (no docs/badge.* files written, no MkdirAll side effect).
+// Only the success path writes — the Interrupted path leaves the badge
+// untouched because a partial report would mint a misleading score.
+var badgeEnabled bool
+
+// badgeOut mirrors --badge-out. Relative paths resolve against the
+// current working directory; the default "docs" matches the README's
+// `<img src="docs/badge.svg">` reference so dogfood and downstream
+// consumers see the same path.
+var badgeOut string
 
 // finalReport / finalThreshold / finalNeverFail communicate the audit
 // outcome from auditCmd.RunE up to Execute() so the report-aware exit
@@ -165,11 +179,94 @@ var auditCmd = &cobra.Command{
 		if rerr := renderReport(cmd.OutOrStdout(), r, opts, outputFormat); rerr != nil {
 			return rerr
 		}
+		if badgeEnabled {
+			if berr := writeBadgeArtefacts(badgeOut, r, opts); berr != nil {
+				return berr
+			}
+		}
 		finalReport = r
 		finalThreshold = threshold
 		finalNeverFail = neverFail
 		return nil
 	},
+}
+
+// writeBadgeArtefacts emits docs/badge.svg + docs/badge.json (or whatever
+// --badge-out resolves to) for r. Only invoked on the clean rendering
+// path: an envelope error or signal interrupt skips this entirely so the
+// badge is never written for a partial or could-not-audit report.
+//
+// Disk-write failures surface as INTERNAL-coded *auditError so Execute()
+// renders the envelope to stderr and exits 4 (exit.Internal). The audit's
+// stdout JSON has already been written by renderReport — we never touch
+// stdout from here. details.path points at the offending file or directory
+// so an operator can see what failed without re-running with --probe.
+func writeBadgeArtefacts(dir string, r *report.Report, opts report.RenderOptions) *auditError {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return newAuditError(
+			report.CodeInternal,
+			fmt.Sprintf("could not create badge output directory: %v", err),
+			"check that the parent directory exists and is writable, or pass --badge-out to a writable path",
+			"",
+			map[string]any{"path": dir, "os": err.Error()},
+			exit.Internal,
+		)
+	}
+
+	svgPath := filepath.Join(dir, "badge.svg")
+	if err := writeBadgeFile(svgPath, func(f *os.File) error {
+		return report.RenderBadgeSVG(f, r, opts)
+	}); err != nil {
+		return err
+	}
+
+	jsonPath := filepath.Join(dir, "badge.json")
+	if err := writeBadgeFile(jsonPath, func(f *os.File) error {
+		return report.RenderBadgeJSON(f, r, opts)
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// writeBadgeFile opens path with O_WRONLY|O_CREATE|O_TRUNC|0o644, calls
+// render(f), and ensures the file is closed before returning. Any open,
+// render, or close error becomes an INTERNAL *auditError carrying the
+// offending path in details.path.
+func writeBadgeFile(path string, render func(*os.File) error) *auditError {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return newAuditError(
+			report.CodeInternal,
+			fmt.Sprintf("could not open badge file: %v", err),
+			"check that the directory is writable",
+			"",
+			map[string]any{"path": path, "os": err.Error()},
+			exit.Internal,
+		)
+	}
+	if rerr := render(f); rerr != nil {
+		_ = f.Close()
+		return newAuditError(
+			report.CodeInternal,
+			fmt.Sprintf("could not render badge file: %v", rerr),
+			"this is an afcli bug — please file an issue with the failing target",
+			"",
+			map[string]any{"path": path, "os": rerr.Error()},
+			exit.Internal,
+		)
+	}
+	if cerr := f.Close(); cerr != nil {
+		return newAuditError(
+			report.CodeInternal,
+			fmt.Sprintf("could not close badge file: %v", cerr),
+			"check that the filesystem is healthy and not full",
+			"",
+			map[string]any{"path": path, "os": cerr.Error()},
+			exit.Internal,
+		)
+	}
+	return nil
 }
 
 func init() {
@@ -179,6 +276,8 @@ func init() {
 	auditCmd.Flags().BoolVar(&probeEnabled, "probe", false, "invoke descriptor.commands.safe[] argv (default off; default-off path is byte-identical to S04)")
 	auditCmd.Flags().DurationVar(&probeTimeout, "probe-timeout", 5*time.Second, "per-probe timeout (default 5s; affects --help, --afcli-bogus-flag, and behavioral probes)")
 	auditCmd.Flags().StringVar(&failOnSeverity, "fail-on", "high", "severity threshold for exit 1: low|medium|high|critical|never")
+	auditCmd.Flags().BoolVar(&badgeEnabled, "badge", false, "emit docs/badge.svg + docs/badge.json after a clean audit (default off)")
+	auditCmd.Flags().StringVar(&badgeOut, "badge-out", "docs", "directory for badge artefacts when --badge is set; relative paths resolve against cwd")
 }
 
 // markUnfinishedAsSkipped finalizes a partial report after signal-driven

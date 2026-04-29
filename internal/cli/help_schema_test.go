@@ -44,6 +44,9 @@ func TestBuildHelpSchemaRoot(t *testing.T) {
 
 // TestBuildHelpSchemaPerSubcommand verifies that anchoring the walk at a
 // subcommand (e.g. audit) produces a schema rooted there, not at the world.
+// Also pins audit's local flags in alphabetical order — collectFlags sorts
+// by name so this list is the wire-visible surface that --help-schema
+// consumers (and the website-generator) lock onto.
 func TestBuildHelpSchemaPerSubcommand(t *testing.T) {
 	hs := BuildHelpSchema(auditCmd)
 	if hs.Command.Name != "audit" {
@@ -51,6 +54,27 @@ func TestBuildHelpSchemaPerSubcommand(t *testing.T) {
 	}
 	if len(hs.Command.Subcommands) != 0 {
 		t.Errorf("audit should have no subcommands, got %d", len(hs.Command.Subcommands))
+	}
+
+	localNames := []string{}
+	for _, f := range hs.Command.Flags {
+		if !f.Persistent {
+			localNames = append(localNames, f.Name)
+		}
+	}
+	wantLocal := []string{
+		"badge",
+		"badge-out",
+		"descriptor",
+		"fail-on",
+		"probe",
+		"probe-timeout",
+	}
+	if !reflect.DeepEqual(localNames, wantLocal) {
+		t.Errorf("audit local flags:\n want %v\n got  %v", wantLocal, localNames)
+	}
+	if !sort.StringsAreSorted(localNames) {
+		t.Errorf("audit local flags not sorted: %v", localNames)
 	}
 }
 
