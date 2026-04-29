@@ -186,7 +186,7 @@ func Validate(d *Descriptor) error {
 			return &Error{
 				Code:    CodeDescriptorInvalid,
 				Message: fmt.Sprintf("skip_principles[%d] %q is not in the embedded manifest", i, id),
-				Hint:    "see https://agentfirstcli.com/principles for the canonical list",
+				Hint:    "see https://agentfirstcli.github.io/principles for the canonical list",
 				Details: map[string]any{
 					"key":   fmt.Sprintf("skip_principles[%d]", i),
 					"value": id,
@@ -212,7 +212,7 @@ func Validate(d *Descriptor) error {
 			return &Error{
 				Code:    CodeDescriptorInvalid,
 				Message: fmt.Sprintf("relax_principles key %q is not in the embedded manifest", id),
-				Hint:    "see https://agentfirstcli.com/principles for the canonical list",
+				Hint:    "see https://agentfirstcli.github.io/principles for the canonical list",
 				Details: map[string]any{
 					"key":   fmt.Sprintf("relax_principles.%s", id),
 					"value": id,

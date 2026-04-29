@@ -29,7 +29,7 @@ var initForce bool
 // token is replaced via strconv.Quote so quotes/backslashes in the user-
 // supplied target name cannot break out of the YAML string.
 const initTemplate = `# afcli.yaml — agent-first-cli descriptor scaffold.
-# See https://agentfirstcli.com/descriptor for the full schema.
+# See https://agentfirstcli.github.io/descriptor for the full schema.
 # This file is the contract afcli reads when auditing this target; edit it
 # in place and re-run ` + "`afcli audit`" + ` to apply your changes.
 

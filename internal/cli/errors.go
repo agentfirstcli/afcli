@@ -95,7 +95,7 @@ func classifyDescriptorError(path string, err error) *auditError {
 			if code == report.CodeDescriptorNotFound {
 				hint = "check the path and that the file exists"
 			} else {
-				hint = "see https://agentfirstcli.com/descriptor for the descriptor schema"
+				hint = "see https://agentfirstcli.github.io/descriptor for the descriptor schema"
 			}
 		}
 		return newAuditError(
@@ -110,7 +110,7 @@ func classifyDescriptorError(path string, err error) *auditError {
 	return newAuditError(
 		report.CodeDescriptorInvalid,
 		fmt.Sprintf("descriptor could not be loaded: %v", err),
-		"see https://agentfirstcli.com/descriptor for the descriptor schema",
+		"see https://agentfirstcli.github.io/descriptor for the descriptor schema",
 		path,
 		map[string]any{"path": path},
 		exit.CouldNotAudit,
