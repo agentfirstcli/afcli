@@ -210,3 +210,33 @@ func TestErrorEnvelopeCrossFormatParity(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderMarkdownQuiet — Quiet=true drops the H1, metadata table, and
+// any pass/skip finding sections. Only fail/review remain.
+func TestRenderMarkdownQuiet(t *testing.T) {
+	r := &Report{
+		ManifestVersion: "v1", AfcliVersion: "0.0.0", Target: "t", StartedAt: "0",
+		Findings: []Finding{
+			{PrincipleID: "P1", Title: "loud-pass", Category: "Output", Status: StatusPass, Kind: KindAutomated, Severity: SeverityLow},
+			{PrincipleID: "P2", Title: "loud-skip", Category: "Output", Status: StatusSkip, Kind: KindAutomated, Severity: SeverityLow},
+			{PrincipleID: "P6", Title: "fail-fast", Category: "Errors", Status: StatusFail, Kind: KindAutomated, Severity: SeverityHigh},
+		},
+	}
+	var buf bytes.Buffer
+	if err := RenderMarkdown(&buf, r, RenderOptions{Quiet: true}); err != nil {
+		t.Fatalf("RenderMarkdown: %v", err)
+	}
+	got := buf.String()
+	if strings.Contains(got, "# afcli audit report") {
+		t.Errorf("Quiet should drop H1: %s", got)
+	}
+	if strings.Contains(got, "| field | value |") {
+		t.Errorf("Quiet should drop metadata table: %s", got)
+	}
+	if strings.Contains(got, "loud-pass") || strings.Contains(got, "loud-skip") {
+		t.Errorf("Quiet should drop pass/skip findings: %s", got)
+	}
+	if !strings.Contains(got, "fail-fast") {
+		t.Errorf("Quiet must keep fail findings: %s", got)
+	}
+}

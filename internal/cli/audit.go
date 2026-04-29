@@ -150,7 +150,10 @@ var auditCmd = &cobra.Command{
 			Findings:        []report.Finding{},
 		}
 
-		opts := report.RenderOptions{Deterministic: DeterministicFromContext(cmd.Context())}
+		opts := report.RenderOptions{
+			Deterministic: DeterministicFromContext(cmd.Context()),
+			Quiet:         QuietFromContext(cmd.Context()),
+		}
 		if opts.Deterministic {
 			r.StartedAt = ""
 		}

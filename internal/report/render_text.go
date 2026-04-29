@@ -17,13 +17,15 @@ import (
 func RenderText(w io.Writer, r *Report, opts RenderOptions) error {
 	out := normalizeReport(r, opts)
 
-	header := fmt.Sprintf("afcli %s | manifest %s | target=%s | duration=%dms",
-		out.AfcliVersion, out.ManifestVersion, out.Target, out.DurationMs)
-	if out.Interrupted {
-		header += " | interrupted"
-	}
-	if _, err := fmt.Fprintln(w, header); err != nil {
-		return err
+	if !opts.Quiet {
+		header := fmt.Sprintf("afcli %s | manifest %s | target=%s | duration=%dms",
+			out.AfcliVersion, out.ManifestVersion, out.Target, out.DurationMs)
+		if out.Interrupted {
+			header += " | interrupted"
+		}
+		if _, err := fmt.Fprintln(w, header); err != nil {
+			return err
+		}
 	}
 
 	if out.Error != nil {
@@ -33,7 +35,7 @@ func RenderText(w io.Writer, r *Report, opts RenderOptions) error {
 	}
 
 	if len(out.Findings) == 0 {
-		if out.Error == nil {
+		if out.Error == nil && !opts.Quiet {
 			_, err := fmt.Fprintln(w, "no findings")
 			return err
 		}
@@ -41,6 +43,9 @@ func RenderText(w io.Writer, r *Report, opts RenderOptions) error {
 	}
 
 	for _, f := range out.Findings {
+		if opts.Quiet && (f.Status == StatusPass || f.Status == StatusSkip) {
+			continue
+		}
 		if _, err := fmt.Fprintf(w, "[%s] %s %s — %s (%s)\n",
 			f.Status, f.PrincipleID, f.Title, f.Category, f.Severity); err != nil {
 			return err

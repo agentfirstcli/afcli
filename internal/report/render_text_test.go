@@ -166,6 +166,65 @@ func TestRenderTextDeterministic(t *testing.T) {
 	}
 }
 
+// TestRenderTextQuiet — Quiet=true suppresses the header line and any
+// pass/skip findings; only fail/review remain. This is the silence
+// affordance the P4 audit principle asks for.
+func TestRenderTextQuiet(t *testing.T) {
+	r := &Report{
+		ManifestVersion: "v1",
+		AfcliVersion:    "0.0.0",
+		Target:          "/bin/echo",
+		StartedAt:       "2026-01-01T00:00:00Z",
+		DurationMs:      42,
+		Findings: []Finding{
+			{PrincipleID: "P1", Title: "loud-pass", Category: "c", Status: StatusPass, Kind: KindAutomated, Severity: SeverityLow, Evidence: "ok"},
+			{PrincipleID: "P2", Title: "loud-skip", Category: "c", Status: StatusSkip, Kind: KindAutomated, Severity: SeverityLow, Evidence: "skipped"},
+			{PrincipleID: "P6", Title: "fail-fast", Category: "c", Status: StatusFail, Kind: KindAutomated, Severity: SeverityHigh, Evidence: "broken"},
+			{PrincipleID: "P7", Title: "needs-review", Category: "c", Status: StatusReview, Kind: KindRequiresReview, Severity: SeverityMedium, Evidence: "see-it"},
+		},
+	}
+	var buf bytes.Buffer
+	if err := RenderText(&buf, r, RenderOptions{Quiet: true}); err != nil {
+		t.Fatalf("RenderText: %v", err)
+	}
+	got := buf.String()
+	if strings.Contains(got, "afcli 0.0.0 |") {
+		t.Errorf("Quiet should drop the header: %s", got)
+	}
+	if strings.Contains(got, "loud-pass") {
+		t.Errorf("Quiet should drop pass findings: %s", got)
+	}
+	if strings.Contains(got, "loud-skip") {
+		t.Errorf("Quiet should drop skip findings: %s", got)
+	}
+	if !strings.Contains(got, "[fail] P6 fail-fast") {
+		t.Errorf("Quiet must keep fail findings: %s", got)
+	}
+	if !strings.Contains(got, "[review] P7 needs-review") {
+		t.Errorf("Quiet must keep review findings: %s", got)
+	}
+}
+
+// TestRenderTextQuietAllPassEmpty — when every finding is pass/skip and
+// Quiet=true, the renderer emits zero bytes (no header, no body, no
+// "no findings" marker). A silent green run produces silence.
+func TestRenderTextQuietAllPassEmpty(t *testing.T) {
+	r := &Report{
+		ManifestVersion: "v1", AfcliVersion: "0.0.0", Target: "t", StartedAt: "0",
+		Findings: []Finding{
+			{PrincipleID: "P1", Title: "a", Category: "c", Status: StatusPass, Kind: KindAutomated, Severity: SeverityLow},
+			{PrincipleID: "P2", Title: "b", Category: "c", Status: StatusSkip, Kind: KindAutomated, Severity: SeverityLow},
+		},
+	}
+	var buf bytes.Buffer
+	if err := RenderText(&buf, r, RenderOptions{Quiet: true}); err != nil {
+		t.Fatalf("RenderText: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("Quiet+all-pass should emit zero bytes, got: %q", buf.String())
+	}
+}
+
 // TestRenderTextInterruptedHeader — the header surfaces an interrupted
 // flag so a partial report is distinguishable from a clean zero-check run.
 func TestRenderTextInterruptedHeader(t *testing.T) {

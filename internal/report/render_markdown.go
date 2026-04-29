@@ -16,33 +16,35 @@ import (
 func RenderMarkdown(w io.Writer, r *Report, opts RenderOptions) error {
 	out := normalizeReport(r, opts)
 
-	if _, err := fmt.Fprintln(w, "# afcli audit report"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w); err != nil {
-		return err
-	}
-
-	if _, err := fmt.Fprintln(w, "| field | value |"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, "| --- | --- |"); err != nil {
-		return err
-	}
-	rows := [][2]string{
-		{"manifest_version", out.ManifestVersion},
-		{"afcli_version", out.AfcliVersion},
-		{"target", out.Target},
-		{"duration_ms", fmt.Sprintf("%d", out.DurationMs)},
-		{"interrupted", fmt.Sprintf("%t", out.Interrupted)},
-	}
-	for _, row := range rows {
-		if _, err := fmt.Fprintf(w, "| %s | %s |\n", row[0], row[1]); err != nil {
+	if !opts.Quiet {
+		if _, err := fmt.Fprintln(w, "# afcli audit report"); err != nil {
 			return err
 		}
-	}
-	if _, err := fmt.Fprintln(w); err != nil {
-		return err
+		if _, err := fmt.Fprintln(w); err != nil {
+			return err
+		}
+
+		if _, err := fmt.Fprintln(w, "| field | value |"); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(w, "| --- | --- |"); err != nil {
+			return err
+		}
+		rows := [][2]string{
+			{"manifest_version", out.ManifestVersion},
+			{"afcli_version", out.AfcliVersion},
+			{"target", out.Target},
+			{"duration_ms", fmt.Sprintf("%d", out.DurationMs)},
+			{"interrupted", fmt.Sprintf("%t", out.Interrupted)},
+		}
+		for _, row := range rows {
+			if _, err := fmt.Fprintf(w, "| %s | %s |\n", row[0], row[1]); err != nil {
+				return err
+			}
+		}
+		if _, err := fmt.Fprintln(w); err != nil {
+			return err
+		}
 	}
 
 	if out.Error != nil {
@@ -52,7 +54,7 @@ func RenderMarkdown(w io.Writer, r *Report, opts RenderOptions) error {
 	}
 
 	if len(out.Findings) == 0 {
-		if out.Error == nil {
+		if out.Error == nil && !opts.Quiet {
 			if _, err := fmt.Fprintln(w, "_no findings_"); err != nil {
 				return err
 			}
@@ -60,7 +62,21 @@ func RenderMarkdown(w io.Writer, r *Report, opts RenderOptions) error {
 		return nil
 	}
 
-	groups := groupByCategory(out.Findings)
+	visible := out.Findings
+	if opts.Quiet {
+		visible = make([]Finding, 0, len(out.Findings))
+		for _, f := range out.Findings {
+			if f.Status == StatusPass || f.Status == StatusSkip {
+				continue
+			}
+			visible = append(visible, f)
+		}
+		if len(visible) == 0 {
+			return nil
+		}
+	}
+
+	groups := groupByCategory(visible)
 	cats := make([]string, 0, len(groups))
 	for c := range groups {
 		cats = append(cats, c)

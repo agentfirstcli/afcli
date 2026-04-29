@@ -9,11 +9,11 @@
       "principle_id": "P1",
       "title": "Structured Output",
       "category": "Output",
-      "status": "review",
+      "status": "pass",
       "kind": "automated",
       "severity": "medium",
-      "evidence": "--help advertises no structured output format (json/ndjson/yaml/csv)",
-      "recommendation": "add --output json (or --json) so callers can parse output mechanically",
+      "evidence": "--output json",
+      "recommendation": "keep advertising structured output formats in --help",
       "hint": "https://agentfirstcli.github.io/principles/structured-output/"
     },
     {
@@ -119,11 +119,11 @@
       "principle_id": "P4",
       "title": "Structured Progress",
       "category": "Output",
-      "status": "review",
+      "status": "pass",
       "kind": "automated",
       "severity": "medium",
-      "evidence": "--help shows no progress or silence affordances",
-      "recommendation": "expose --progress / --quiet so agents can choose between event streams and silence",
+      "evidence": "--quiet",
+      "recommendation": "keep exposing progress / silence affordances",
       "hint": "https://agentfirstcli.github.io/principles/structured-progress/"
     },
     {

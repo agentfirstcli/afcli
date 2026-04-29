@@ -16,6 +16,7 @@ import (
 var (
 	outputFormat  string
 	deterministic bool
+	quietFlag     bool
 	helpSchema    bool
 	versionFlag   bool
 )
@@ -25,6 +26,7 @@ type ctxKey int
 
 const (
 	deterministicKey ctxKey = iota
+	quietKey
 )
 
 // WithDeterministic returns a child context carrying the effective
@@ -41,6 +43,24 @@ func DeterministicFromContext(ctx context.Context) bool {
 		return false
 	}
 	if v, ok := ctx.Value(deterministicKey).(bool); ok {
+		return v
+	}
+	return false
+}
+
+// WithQuiet returns a child context carrying the effective --quiet
+// decision. The text and markdown renderers read it via
+// QuietFromContext to drop pass/skip findings and the header line.
+func WithQuiet(ctx context.Context, v bool) context.Context {
+	return context.WithValue(ctx, quietKey, v)
+}
+
+// QuietFromContext reports whether quiet mode is active. Defaults to false.
+func QuietFromContext(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	if v, ok := ctx.Value(quietKey).(bool); ok {
 		return v
 	}
 	return false
@@ -78,7 +98,16 @@ EXIT STATUS
   2   usage error — unknown flag, bad arg count, or malformed descriptor
   3   could not audit — target missing, not executable, or probe denied
   4   internal error — unexpected failure inside afcli
-  130 interrupted (SIGINT/SIGTERM); a partial report is written to stdout`,
+  130 interrupted (SIGINT/SIGTERM); a partial report is written to stdout
+
+PROGRESS & SILENCE
+  --quiet, -q  suppress passes and the header in text/markdown output;
+               --output json is unaffected (machine consumers always get
+               the full 16-finding envelope).
+  NO_COLOR     the text and markdown renderers emit no ANSI escapes, so
+               the NO_COLOR convention (https://no-color.org) is honored
+               by construction. Set NO_COLOR=1 to be explicit; afcli's
+               output is unchanged either way.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -86,7 +115,9 @@ EXIT STATUS
 		if ctx == nil {
 			ctx = context.Background()
 		}
-		cmd.SetContext(WithDeterministic(ctx, resolveDeterministic(deterministic)))
+		ctx = WithDeterministic(ctx, resolveDeterministic(deterministic))
+		ctx = WithQuiet(ctx, quietFlag)
+		cmd.SetContext(ctx)
 		if versionFlag {
 			if _, err := fmt.Fprintln(cmd.OutOrStdout(), version.String()); err != nil {
 				return err
@@ -114,6 +145,7 @@ EXIT STATUS
 func init() {
 	rootCmd.PersistentFlags().StringVar(&outputFormat, "output", "json", "output format: json, text, or markdown")
 	rootCmd.PersistentFlags().BoolVar(&deterministic, "deterministic", false, "produce deterministic output (zero timestamps/durations, relative paths, stable sort)")
+	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false, "suppress passes and the header in text/markdown output (--output json is unaffected)")
 	rootCmd.PersistentFlags().BoolVar(&helpSchema, "help-schema", false, "emit machine-parseable help schema as JSON and exit")
 	rootCmd.PersistentFlags().BoolVar(&versionFlag, "version", false, "print version information and exit")
 	rootCmd.AddCommand(auditCmd)
@@ -166,7 +198,10 @@ func Execute() {
 		os.Exit(exit.Interrupted)
 	}
 
-	opts := report.RenderOptions{Deterministic: resolveDeterministic(deterministic)}
+	opts := report.RenderOptions{
+		Deterministic: resolveDeterministic(deterministic),
+		Quiet:         quietFlag,
+	}
 
 	var ae *auditError
 	if errors.As(err, &ae) {
