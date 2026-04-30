@@ -44,6 +44,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Pin goreleaser's current tag to the workflow's triggering ref. Without
+          # this, goreleaser falls back to `git describe --tags`, which is
+          # non-deterministic when stable + RC tags share a commit (the actions/checkout
+          # fetch order can resolve to either). Caused v0.1.1 to re-publish RC.2 artefacts.
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
 
       - name: regenerate-badge
         if: ${{ !contains(github.ref, '-rc.') }}
